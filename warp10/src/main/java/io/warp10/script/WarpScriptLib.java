@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import io.warp10.WarpClassLoader;
 import io.warp10.WarpConfig;
+import io.warp10.WarpManager;
 import io.warp10.continuum.Configuration;
 import io.warp10.continuum.gts.CORRELATE;
 import io.warp10.continuum.gts.DISCORDS;
@@ -438,6 +439,13 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new REPORT("REPORT"));
     addNamedWarpScriptFunction(new MINREV("MINREV"));
 
+    addNamedWarpScriptFunction(new MANAGERONOFF("UPDATEON", WarpManager.UPDATE_DISABLED, true));   
+    addNamedWarpScriptFunction(new MANAGERONOFF("UPDATEOFF", WarpManager.UPDATE_DISABLED, false));   
+    addNamedWarpScriptFunction(new MANAGERONOFF("METAON", WarpManager.META_DISABLED, true));   
+    addNamedWarpScriptFunction(new MANAGERONOFF("METAOFF", WarpManager.META_DISABLED, false));   
+    addNamedWarpScriptFunction(new MANAGERONOFF("DELETEON", WarpManager.DELETE_DISABLED, true));   
+    addNamedWarpScriptFunction(new MANAGERONOFF("DELETEOFF", WarpManager.DELETE_DISABLED, false));
+    
     addNamedWarpScriptFunction(new NOOP(BOOTSTRAP));
 
     addNamedWarpScriptFunction(new RTFM("RTFM"));
@@ -526,6 +534,7 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new STORE(STORE));
     addNamedWarpScriptFunction(new CSTORE("CSTORE"));
     addNamedWarpScriptFunction(new LOAD(LOAD));
+    addNamedWarpScriptFunction(new IMPORT("IMPORT"));
     addNamedWarpScriptFunction(new RUN(RUN));
     addNamedWarpScriptFunction(new DEF("DEF"));
     addNamedWarpScriptFunction(new UDF("UDF", false));
@@ -1637,16 +1646,14 @@ public class WarpScriptLib {
         WarpScriptExtension wse = (WarpScriptExtension) cls.newInstance();          
         wse.register();
         
-        System.out.print("LOADED extension '" + extension  + "'");
-        
         String namespace = props.getProperty(Configuration.CONFIG_WARPSCRIPT_NAMESPACE_PREFIX + wse.getClass().getName(), "").trim(); 
         if (null != namespace && !"".equals(namespace)) {
           if (namespace.contains("%")) {
             namespace = URLDecoder.decode(namespace, "UTF-8");
           }
-          System.out.println(" under namespace '" + namespace + "'.");
+          LOG.info("LOADED extension '" + extension + "'" + " under namespace '" + namespace + "'.");
         } else {
-          System.out.println();
+          LOG.info("LOADED extension '" + extension + "'");
         }
       } catch (Exception e) {
         throw new RuntimeException(e);
@@ -1661,6 +1668,7 @@ public class WarpScriptLib {
         sb.append(extension);
         sb.append("'");
       }
+      LOG.error(sb.toString());
       throw new RuntimeException(sb.toString());
     }
   }
