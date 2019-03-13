@@ -316,7 +316,23 @@ public class WarpConfig {
     }
     return (Properties) properties.clone();
   }
+  
+  public static String getProperty(String key) {
+    if (null == properties) {
+      throw new RuntimeException("Properties not set.");
+    } else {
+      return properties.getProperty(key);
+    }
+  }
 
+  public static String getProperty(String key, String defaultValue) {
+    if (null == properties) {
+      throw new RuntimeException("Properties not set.");
+    } else {
+      return properties.getProperty(key, defaultValue);
+    }    
+  }
+  
   public static void main(String... args) {
     if (2 != args.length) {
       System.err.println("2 arguments required: properties file and the property key");
@@ -332,7 +348,7 @@ public class WarpConfig {
     String key = args[1];
     try {
       properties = WarpConfig.readConfig(new FileReader(file), null);
-      System.out.println(key + "=" + WarpConfig.getProperties().getProperty(key));
+      System.out.println(key + "=" + WarpConfig.getProperty(key));
     } catch (Exception e) {
       e.printStackTrace();
     }
