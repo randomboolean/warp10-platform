@@ -1425,6 +1425,11 @@ public class Configuration {
   public static final String DATALOG_DIR = "datalog.dir";
   
   /**
+   * Set to true to call fsync when closing datalog files
+   */
+  public static final String DATALOG_SYNC = "datalog.sync";
+  
+  /**
    * Id of this datalog node. The id will be used in the file name and will be passed down to child nodes via
    * a header.
    */
@@ -1862,7 +1867,12 @@ public class Configuration {
    * Maximum number of subprogram instances which can be spawned
    */
   public static final String WARPSCRIPT_CALL_MAXCAPACITY = "warpscript.call.maxcapacity";
-      
+  
+  /**
+   * Secret to use for setting configuration accessible via MACROCONFIG
+   */
+  public static final String CONFIG_MACROCONFIG_SECRET = "warpscript.macroconfig.secret";
+  
   /**
    * Macro Repository root directory
    */  
@@ -1934,6 +1944,16 @@ public class Configuration {
    */
   public static final String WARPFLEET_MACROS_TTL_UNKNOWN = "warpfleet.macros.ttl.unknown";
 
+  /**
+   * Read timeout when fetching macro source code from a repository, in ms. Defaults to 10s.
+   */
+  public static final String WARPFLEET_TIMEOUT_READ = "warpfleet.timeout.read";
+  
+  /**
+   * Connection timeout when fetching macro source code from a repository, in ms. Defaults to 5s.
+   */
+  public static final String WARPFLEET_TIMEOUT_CONNECT = "warpfleet.timeout.connect";
+  
   /**
    * Name of WarpFleet repository macro. This macro consumes a URL and emits a boolean.
    */
