@@ -253,6 +253,18 @@ subprojects {
     }
 }
 
+project(':token') {
+  dependencies {
+    compile project(':crypto')
+  }
+}
+
+project(':warp10') {
+  dependencies {
+    compile project(':token'), project(':crypto')
+  }
+}
+
 // ------------------------------------------------------------------
 //                    AUTO RELEASE MANAGEMENT
 // Gets the version name from the latest Git tag
