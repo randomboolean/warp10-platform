@@ -1,5 +1,5 @@
 //
-//   Copyright 2018  SenX S.A.S.
+//   Copyright 2019  SenX S.A.S.
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -14,8 +14,11 @@
 //   limitations under the License.
 //
 
-package io.warp10.script.hadoop;
+//
+// TCP Plugin
+//
 
-public class GTSLoadFunc {
-
-}
+// Directory where TCP 'spec' files will be located
+#tcp.dir =
+// Period (in ms) at which to rescan 'tcp.dir' for spec files changes (defaults to 60s)
+#tcp.scanperiod = 60000

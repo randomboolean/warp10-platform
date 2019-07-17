@@ -28,7 +28,6 @@ public class Configuration {
   
   public static final String WARP_HASH_CLASS = "warp.hash.class";
   public static final String WARP_HASH_LABELS = "warp.hash.labels";
-  public static final String CONTINUUM_HASH_INDEX = "warp.hash.index";
   public static final String WARP_HASH_TOKEN = "warp.hash.token";
   public static final String WARP_HASH_APP = "warp.hash.app";
   public static final String WARP_AES_TOKEN = "warp.aes.token";
@@ -310,27 +309,27 @@ public class Configuration {
   /**
    * Maximum number of classes for which to report detailed stats in 'stats'
    */
-  public static String DIRECTORY_STATS_CLASS_MAXCARDINALITY = "directory.stats.class.maxcardinality";
+  public static final String DIRECTORY_STATS_CLASS_MAXCARDINALITY = "directory.stats.class.maxcardinality";
   
   /**
    * Maximum number of labels for which to report detailed stats in 'stats'
    */
-  public static String DIRECTORY_STATS_LABELS_MAXCARDINALITY = "directory.stats.labels.maxcardinality";
+  public static final String DIRECTORY_STATS_LABELS_MAXCARDINALITY = "directory.stats.labels.maxcardinality";
   
   /**
    * Maximum size of Thrift frame for directory service
    */
-  public static String DIRECTORY_FRAME_MAXLEN = "directory.frame.maxlen";
+  public static final String DIRECTORY_FRAME_MAXLEN = "directory.frame.maxlen";
 
   /**
    * Maximum number of Metadata to return in find responses
    */
-  public static String DIRECTORY_FIND_MAXRESULTS = "directory.find.maxresults";
+  public static final String DIRECTORY_FIND_MAXRESULTS = "directory.find.maxresults";
 
   /**
    * Hard limit on number of find results. After this limit, the find request will fail.
    */
-  public static String DIRECTORY_FIND_MAXRESULTS_HARD = "directory.find.maxresults.hard";
+  public static final String DIRECTORY_FIND_MAXRESULTS_HARD = "directory.find.maxresults.hard";
   
   /**
    * Zookeeper ZK connect string for Kafka ('metadata' topic)
@@ -1343,12 +1342,6 @@ public class Configuration {
   public static final String LEVELDB_DATA_AES = "leveldb.data.aes";
   
   /**
-   * @deprecated
-   * AES key to use for storing index details in leveldb
-   */
-  public static final String LEVELDB_INDEX_AES = "leveldb.index.aes";
-  
-  /**
    * Cache size for leveldb (in bytes)
    */
   public static final String LEVELDB_CACHE_SIZE = "leveldb.cache.size";
@@ -1441,6 +1434,22 @@ public class Configuration {
   public static final String DATALOG_ID = "datalog.id";
   
   /**
+   * Comma separated list of shards this Warp 10 instance should store. The format of each
+   * shard is MODULUS:REMAINDER
+   */
+  public static final String DATALOG_SHARDS = "datalog.shards";
+  
+  /**
+   * Number of bits to shift the default shard key
+   */
+  public static final String DATALOG_SHARDKEY_SHIFT = "datalog.shardkey.shift";
+  
+  /**
+   * Set to true or false to log the sharding key in the datalog request files
+   */
+  public static final String DATALOG_LOGSHARDKEY = "datalog.logshardkey";
+  
+  /**
    * Pre-shared AES key to wrap datalog.id and datalog.timestamp header values
    */
   public static final String DATALOG_PSK = "datalog.psk";
@@ -1454,6 +1463,12 @@ public class Configuration {
    * Configuration key to modify the datalog header
    */
   public static final String HTTP_HEADER_DATALOG = "http.header.datalog";
+  
+  /**
+   * Comma separated list of forwarders. Configuration for each forwarder will be suffixed with
+   * '.name' except for datalog.psk which is common to all forwarders
+   */
+  public static final String DATALOG_FORWARDERS = "datalog.forwarders";
   
   /**
    * Comma separated list of ids which should be ignored by the forwarder. This is to prevent loops from
@@ -1518,6 +1533,17 @@ public class Configuration {
   public static final String DATALOG_FORWARDER_ENDPOINT_META = "datalog.forwarder.endpoint.meta";
   
   /**
+   * Comma separated list of shards to forward, each shard being specified as MODULUS:REMAINDER
+   */
+  public static final String DATALOG_FORWARDER_SHARDS = "datalog.forwarder.shards";
+  
+  /**
+   * Number of bits to right shift the shard key. If this is >= 24, then only the class id will be
+   * considered for sharding. 
+   */
+  public static final String DATALOG_FORWARDER_SHARDKEY_SHIFT = "datalog.forwarder.shardkey.shift";
+
+  /*
    * Set to a message indicating the reason why updates are disabled, they are enabled if this is not set
    */
   public static final String WARP_UPDATE_DISABLED = "warp.update.disabled";
@@ -1909,10 +1935,15 @@ public class Configuration {
   public static final String REPOSITORY_ONDEMAND = "warpscript.repository.ondemand";
 
   /**
-   * Comma separated list of default WarpFleet™ repositories
+   * Comma separated list of configured WarpFleet™ repositories
    */
   public static final String WARPFLEET_MACROS_REPOS = "warpfleet.macros.repos";
   
+  /**
+   * Default value for warpfleet.macros.repos if it is not set
+   */
+  public static final String WARPFLEET_MACROS_REPOS_DEFAULT = "https://warpfleet.senx.io/macros";
+
   /**
    * Configure this property to 'true' to disable the function WF.GETREPOS. This is useful when some of your repo URLs have sensitive information.
    */
@@ -2033,21 +2064,74 @@ public class Configuration {
   /**
    * Name of header containing the signature of the token used for the fetch
    */
-  public static String HTTP_HEADER_FETCH_SIGNATURE = "http.header.fetch.signature";
+  public static final String HTTP_HEADER_FETCH_SIGNATURE = "http.header.fetch.signature";
 
   /**
    * Name of header containing the signature of the token used for the update
    */
-  public static String HTTP_HEADER_UPDATE_SIGNATURE = "http.header.update.signature";
+  public static final String HTTP_HEADER_UPDATE_SIGNATURE = "http.header.update.signature";
   
   /**
    * Name of header containing the signature of streaming directory requests
    */
-  public static String HTTP_HEADER_DIRECTORY_SIGNATURE = "http.header.directory.signature";  
+  public static final String HTTP_HEADER_DIRECTORY_SIGNATURE = "http.header.directory.signature";
 
   /**
    * Name of header containing the name of the symbol in which to expose the request headers
    */
-  public static String HTTP_HEADER_EXPOSE_HEADERS = "http.header.exposeheaders";
+  public static final String HTTP_HEADER_EXPOSE_HEADERS = "http.header.exposeheaders";
+
+  /**
+   * SSL Port
+   */
+  public static final String _SSL_PORT = ".ssl.port";
+
+  /**
+   * SSL Host
+   */
+  public static final String _SSL_HOST = ".ssl.host";
+
+  /**
+   * SSL Acceptors
+   */
+  public static final String _SSL_ACCEPTORS = ".ssl.acceptors";
   
+  /**
+   * SSL Selectors
+   */
+  public static final String _SSL_SELECTORS = ".ssl.selectors";
+
+  /**
+   * SSL KeyStore path
+   */
+  public static final String _SSL_KEYSTORE_PATH = ".ssl.keystore.path";
+  
+  /**
+   * SSL KeyStore password
+   */
+  public static final String _SSL_KEYSTORE_PASSWORD = ".ssl.keystore.password";
+
+  /**
+   * Alias associated with the certificate to use
+   */
+  public static final String _SSL_CERT_ALIAS = ".ssl.cert.alias";
+  
+  /**
+   * SSL KeyManager password
+   */
+  public static final String _SSL_KEYMANAGER_PASSWORD = ".ssl.keymanager.password";
+
+  /**
+   * SSL Idle timeout
+   */
+  public static final String _SSL_IDLE_TIMEOUT = ".ssl.idle.timeout";
+  
+  //
+  // Prefixes for the SSL configs
+  //
+  
+  public static final String STANDALONE_PREFIX = "standalone";
+  public static final String EGRESS_PREFIX = "egress";
+  public static final String INGRESS_PREFIX = "ingress";
+  public static final String PLASMA_FRONTEND_PREFIX = "plasma.frontend";
 }

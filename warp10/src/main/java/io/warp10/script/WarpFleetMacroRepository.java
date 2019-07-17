@@ -136,8 +136,8 @@ public class WarpFleetMacroRepository {
       return null;
     }
     
-    // Reject names with relative path components in them
-    if (name.contains("/../") || name.contains("/./") || name.startsWith("../") || name.startsWith("./")) {
+    // Reject names with relative path components in them or starting with '/'
+    if (name.contains("/../") || name.contains("/./") || name.startsWith("../") || name.startsWith("./") || name.startsWith("/")) {
       return null;
     }
     
@@ -364,7 +364,7 @@ public class WarpFleetMacroRepository {
   }
   
   public static void init(Properties properties) {
-    String repostr = properties.getProperty(Configuration.WARPFLEET_MACROS_REPOS);
+    String repostr = properties.getProperty(Configuration.WARPFLEET_MACROS_REPOS, Configuration.WARPFLEET_MACROS_REPOS_DEFAULT);
     
     if (null != repostr) {
       String[] repos = repostr.split(",");
