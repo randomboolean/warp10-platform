@@ -15,6 +15,7 @@
 package io.warp10;
 
 import io.warp10.script.WarpScriptLib;
+import ml.MachineLearningPackage;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -24,33 +25,55 @@ import java.io.FileFilter;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class WarpTest {
 
   //change with your absolute path.
-  private static String WARP10_HOME = "/home/jc/Projects/2019/warp10-platform/warp10/archive/warp10-2.0.2-116-gcd20745a";
+  private static String PROJECT_FOLDER = "/home/jc/Projects/2019/";
+  private static String WARP10_HOME = PROJECT_FOLDER + "warp10-platform/warp10/archive/warp10-2.1.0-106-g2d446747";
+  private static String PY4J_JAR = PROJECT_FOLDER + "warp10-plugin-py4j/build/libs/warp10-plugin-py4j-41a0a63.jar";
+  private static String TF_EXT_JAR = PROJECT_FOLDER + "warp10-ext-tensorflow/build/libs/warp10-ext-tensorflow-037c800.jar";
 
   //@Ignore
   @Test
   public void testWarp() throws Exception {
 
-    // loging
+    //
+    // Loging
+    //
+
     System.setProperty("log4j.configuration", new File(WARP10_HOME + "/etc/log4j.properties").toURI().toString());
     System.setProperty("sensision.server.port", "0");
 
-    // load extensions
-    File[] jars = (new File(WARP10_HOME + "/lib")).listFiles((FileFilter) new WildcardFileFilter("*.jar"));
+    //
+    // Register project extensions
+    //
+
+    //WarpScriptLib.register(new MachineLearningPackage());
+
+    //
+    // Load jar extensions (needs to be specified in conf file)
+    //
+
+    List<File> jars = new ArrayList<File>();
+    //jars.addAll(Arrays.asList((new File(WARP10_HOME + "/lib")).listFiles((FileFilter) new WildcardFileFilter("*.jar"))));
+    jars.add(new File(PY4J_JAR));
+    jars.add(new File(TF_EXT_JAR));
+
     URLClassLoader cl = (URLClassLoader) WarpScriptLib.class.getClassLoader();
     Method m = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
     m.setAccessible(true);
 
-    for (int i = 0; i < jars.length; i++) {
-      URL url = jars[i].toURL();
+    for (int i = 0; i < jars.size(); i++) {
+      URL url = jars.get(i).toURL();
       m.invoke(cl, url);
       System.out.println("Loading " + url.toString());
     }
 
     // start Warp 10
-    Warp.main(new String[]{WARP10_HOME + "/etc/conf-standalone.conf"});
+    Warp.main(new String[]{PROJECT_FOLDER + "warp10-platform/conf-standalone.conf"});
   }
 }
