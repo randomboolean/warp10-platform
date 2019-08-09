@@ -15,7 +15,6 @@
 package io.warp10;
 
 import io.warp10.script.WarpScriptLib;
-import ml.MachineLearningPackage;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -27,7 +26,9 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class WarpTest {
 
@@ -36,6 +37,7 @@ public class WarpTest {
   private static String WARP10_HOME = PROJECT_FOLDER + "warp10-platform/warp10/archive/warp10-2.1.0-106-g2d446747";
   private static String PY4J_JAR = PROJECT_FOLDER + "warp10-plugin-py4j/build/libs/warp10-plugin-py4j-41a0a63.jar";
   private static String TF_EXT_JAR = PROJECT_FOLDER + "warp10-ext-tensorflow/build/libs/warp10-ext-tensorflow-037c800.jar";
+  private static String ML_EXT_JAR = PROJECT_FOLDER + "warp10-ext-forecast/build/libs/Warp10-Forecast.jar";
 
   //@Ignore
   @Test
@@ -52,7 +54,7 @@ public class WarpTest {
     // Register project extensions
     //
 
-    //WarpScriptLib.register(new MachineLearningPackage());
+    // WarpScriptLib.register(new MachineLearningPackage());
 
     //
     // Load jar extensions (needs to be specified in conf file)
@@ -62,6 +64,7 @@ public class WarpTest {
     //jars.addAll(Arrays.asList((new File(WARP10_HOME + "/lib")).listFiles((FileFilter) new WildcardFileFilter("*.jar"))));
     jars.add(new File(PY4J_JAR));
     jars.add(new File(TF_EXT_JAR));
+    jars.add(new File(ML_EXT_JAR));
 
     URLClassLoader cl = (URLClassLoader) WarpScriptLib.class.getClassLoader();
     Method m = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
@@ -72,6 +75,11 @@ public class WarpTest {
       m.invoke(cl, url);
       System.out.println("Loading " + url.toString());
     }
+
+    // Additional configuration properties
+    Map<String, String> props = new HashMap<String, String>();
+    props.put("mlextension.customer.key", "customer:simplekeyr");
+    Warp.setAdditionalProperties(props);
 
     // start Warp 10
     Warp.main(new String[]{PROJECT_FOLDER + "warp10-platform/conf-standalone.conf"});
