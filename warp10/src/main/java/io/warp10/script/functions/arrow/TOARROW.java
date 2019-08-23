@@ -46,7 +46,7 @@ public class TOARROW extends FormattedWarpScriptFunction {
     args =  new ArgumentsBuilder()
       .addArgument(GeoTimeSerie.class, GTS, "The Geo Time Series to be converted.") //TODO(JC): do it for GTSencoders as well
       //.firstArgIsListExpandable()
-      .addOptionalArgument(Long.class, BATCH_SIZE, "The number of ticks per batch. Default to gts size.", 0)
+      .addOptionalArgument(Long.class, BATCH_SIZE, "The number of ticks per batch. Default to gts size.", 0L)
       .build();
 
   }
