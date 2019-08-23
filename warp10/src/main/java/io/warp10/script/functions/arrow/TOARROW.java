@@ -46,7 +46,7 @@ public class TOARROW extends FormattedWarpScriptFunction {
     args =  new ArgumentsBuilder()
       .addArgument(GeoTimeSerie.class, GTS, "The Geo Time Series to be converted.") //TODO(JC): do it for GTSencoders as well
       //.firstArgIsListExpandable()
-      .addOptionalArgument(Long.class, BATCH_SIZE, "The number of ticks per batch. Default to 1.", 1)
+      .addOptionalArgument(Long.class, BATCH_SIZE, "The number of ticks per batch. Default to gts size.", 0)
       .build();
 
   }
@@ -54,7 +54,11 @@ public class TOARROW extends FormattedWarpScriptFunction {
   @Override
   public WarpScriptStack apply(Map<String, Object> params, WarpScriptStack stack) throws WarpScriptException {
     GeoTimeSerie gts = (GeoTimeSerie) params.get(GTS);
+
     int nTicksPerBatch = ((Long) params.get(BATCH_SIZE)).intValue();
+    if (0 == nTicksPerBatch) {
+      nTicksPerBatch = gts.size();
+    }
 
     stack.push(ArrowAdapterHelper.toArrowStream(gts, nTicksPerBatch));
     return stack;
