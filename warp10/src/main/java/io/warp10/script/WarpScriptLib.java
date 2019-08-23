@@ -27,6 +27,8 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 
+import io.warp10.script.functions.arrow.TOARROW;
+import io.warp10.script.functions.arrow.ARROWTO;
 import org.apache.commons.lang3.JavaVersion;
 import org.apache.commons.lang3.SystemUtils;
 import org.bouncycastle.crypto.digests.MD5Digest;
@@ -47,7 +49,6 @@ import io.warp10.continuum.gts.IFFT;
 import io.warp10.continuum.gts.INTERPOLATE;
 import io.warp10.continuum.gts.LOCATIONOFFSET;
 import io.warp10.continuum.gts.ZIP;
-import io.warp10.script.WarpScriptStack.Macro;
 import io.warp10.script.aggregator.And;
 import io.warp10.script.aggregator.Argminmax;
 import io.warp10.script.aggregator.CircularMean;
@@ -468,7 +469,9 @@ public class WarpScriptLib {
     //
     // Stack manipulation functions
     //
-    
+
+    addNamedWarpScriptFunction(new TOARROW("->ARROW"));
+    addNamedWarpScriptFunction(new ARROWTO("ARROW->"));
     addNamedWarpScriptFunction(new PIGSCHEMA("PIGSCHEMA"));
     addNamedWarpScriptFunction(new MARK(MARK));
     addNamedWarpScriptFunction(new CLEARTOMARK("CLEARTOMARK"));
