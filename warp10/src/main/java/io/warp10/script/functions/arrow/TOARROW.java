@@ -60,7 +60,7 @@ public class TOARROW extends FormattedWarpScriptFunction {
       nTicksPerBatch = gts.size();
     }
 
-    stack.push(ArrowAdapterHelper.toArrowStream(gts, nTicksPerBatch));
+    stack.push(ArrowAdapterHelper.gtstoArrowStream(gts, nTicksPerBatch));
     return stack;
   }
 }

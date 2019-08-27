@@ -100,7 +100,7 @@ public class ArrowAdapterHelper {
    * @param gts
    * @return
    */
-  public static Schema createArrowSchema(GeoTimeSerie gts) throws WarpScriptException {
+  public static Schema createGtsSchema(GeoTimeSerie gts) throws WarpScriptException {
 
     List<Field> fields = new ArrayList<>();
     Map<String, String> metadata = new HashMap<>();
@@ -191,9 +191,9 @@ public class ArrowAdapterHelper {
   /**
    * Convert a GTS to an arrow stream
    */
-  public static byte[] toArrowStream(GeoTimeSerie gts, int nTicksPerBatch) throws WarpScriptException {
+  public static byte[] gtstoArrowStream(GeoTimeSerie gts, int nTicksPerBatch) throws WarpScriptException {
 
-    VectorSchemaRoot root = VectorSchemaRoot.create(createArrowSchema(gts), new RootAllocator(Integer.MAX_VALUE));
+    VectorSchemaRoot root = VectorSchemaRoot.create(createGtsSchema(gts), new RootAllocator(Integer.MAX_VALUE));
 
     //
     // Feed data to root
@@ -253,5 +253,13 @@ public class ArrowAdapterHelper {
     }
 
     return ((ByteArrayOutputStream) out).toByteArray();
+  }
+
+  public boolean isSchemaOfGts(Schema schema) {
+
+
+
+
+    return true;
   }
 }
