@@ -18,6 +18,7 @@ package io.warp10.script;
 
 import java.net.URL;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -27,6 +28,8 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 
+import io.warp10.script.aggregator.CompareTo;
+import io.warp10.script.mapper.MapperCompareTo;
 import org.apache.commons.lang3.JavaVersion;
 import org.apache.commons.lang3.SystemUtils;
 import org.bouncycastle.crypto.digests.MD5Digest;
@@ -762,6 +765,7 @@ public class WarpScriptLib {
   public static final String CORRELATE = "CORRELATE";
   public static final String SORT = "SORT";
   public static final String SORTBY = "SORTBY";
+  public static final String SORTWITH = "SORTWITH";
   public static final String RSORT = "RSORT";
   public static final String LASTSORT = "LASTSORT";
   public static final String METASORT = "METASORT";
@@ -803,6 +807,7 @@ public class WarpScriptLib {
   public static final String VALUESPLIT = "VALUESPLIT";
   public static final String TICKLIST = "TICKLIST";
   public static final String COMMONTICKS = "COMMONTICKS";
+  public static final String GOLDWRAP = "GOLDWRAP";
   public static final String WRAP = "WRAP";
   public static final String WRAPRAW = "WRAPRAW";
   public static final String WRAPFAST = "WRAPFAST";
@@ -1033,6 +1038,7 @@ public class WarpScriptLib {
   public static final String PNORM = "Pnorm";
   public static final String VARS = "VARS";
   public static final String ASREGS = "ASREGS";
+  public static final String ASENCODERS = "ASENCODERS";
 
   public static final String TOLIST = "->LIST";
   public static final String TOMAP = "->MAP";
@@ -1087,6 +1093,45 @@ public class WarpScriptLib {
   public static final String GEO_INTERSECTS = "GEO.INTERSECTS";
   public static final String GEO_COVER = "GEO.COVER";
   public static final String GEO_COVER_RL = "GEO.COVER.RL";
+
+  public static final String MAPPER_GT = "mapper.gt";
+  public static final String MAPPER_GE = "mapper.ge";
+  public static final String MAPPER_EQ = "mapper.eq";
+  public static final String MAPPER_NE = "mapper.ne";
+  public static final String MAPPER_LE = "mapper.le";
+  public static final String MAPPER_LT = "mapper.lt";
+  public static final String MAPPER_GT_TICK = "mapper.gt.tick";
+  public static final String MAPPER_GE_TICK = "mapper.ge.tick";
+  public static final String MAPPER_EQ_TICK = "mapper.eq.tick";
+  public static final String MAPPER_NE_TICK = "mapper.ne.tick";
+  public static final String MAPPER_LE_TICK = "mapper.le.tick";
+  public static final String MAPPER_LT_TICK = "mapper.lt.tick";
+  public static final String MAPPER_GT_LAT = "mapper.gt.lat";
+  public static final String MAPPER_GE_LAT = "mapper.ge.lat";
+  public static final String MAPPER_EQ_LAT = "mapper.eq.lat";
+  public static final String MAPPER_NE_LAT = "mapper.ne.lat";
+  public static final String MAPPER_LE_LAT = "mapper.le.lat";
+  public static final String MAPPER_LT_LAT = "mapper.lt.lat";
+  public static final String MAPPER_GT_LON = "mapper.gt.lon";
+  public static final String MAPPER_GE_LON = "mapper.ge.lon";
+  public static final String MAPPER_EQ_LON = "mapper.eq.lon";
+  public static final String MAPPER_NE_LON = "mapper.ne.lon";
+  public static final String MAPPER_LE_LON = "mapper.le.lon";
+  public static final String MAPPER_LT_LON = "mapper.lt.lon";
+  public static final String MAPPER_GT_HHCODE = "mapper.gt.hhcode";
+  public static final String MAPPER_GE_HHCODE = "mapper.ge.hhcode";
+  public static final String MAPPER_EQ_HHCODE = "mapper.eq.hhcode";
+  public static final String MAPPER_NE_HHCODE = "mapper.ne.hhcode";
+  public static final String MAPPER_LE_HHCODE = "mapper.le.hhcode";
+  public static final String MAPPER_LT_HHCODE = "mapper.lt.hhcode";
+  public static final String MAPPER_GT_ELEV = "mapper.gt.elev";
+  public static final String MAPPER_GE_ELEV = "mapper.ge.elev";
+  public static final String MAPPER_EQ_ELEV = "mapper.eq.elev";
+  public static final String MAPPER_NE_ELEV = "mapper.ne.elev";
+  public static final String MAPPER_LE_ELEV = "mapper.le.elev";
+  public static final String MAPPER_LT_ELEV = "mapper.lt.elev";
+
+  public static final String EQ = "==";
 
   
   static {
@@ -1315,7 +1360,7 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new MUL("*"));
     addNamedWarpScriptFunction(new POW("**"));
     addNamedWarpScriptFunction(new MOD("%"));
-    addNamedWarpScriptFunction(new EQ("=="));
+    addNamedWarpScriptFunction(new EQ(EQ));
     addNamedWarpScriptFunction(new NE("!="));
     addNamedWarpScriptFunction(new LT("<"));
     addNamedWarpScriptFunction(new GT(">"));
@@ -1468,6 +1513,7 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new TOENCODER(TOENCODER));
     addNamedWarpScriptFunction(new ENCODERTO(ENCODERTO));
     addNamedWarpScriptFunction(new TOGTS(TOGTS));
+    addNamedWarpScriptFunction(new ASENCODERS(ASENCODERS));
     addNamedWarpScriptFunction(new TOENCODERS(TOENCODERS));
     addNamedWarpScriptFunction(new OPTIMIZE(OPTIMIZE));
     addNamedWarpScriptFunction(new NEWGTS(NEWGTS));
@@ -1562,6 +1608,7 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new CORRELATE.Builder(CORRELATE));
     addNamedWarpScriptFunction(new SORT(SORT));
     addNamedWarpScriptFunction(new SORTBY(SORTBY));
+    addNamedWarpScriptFunction(new SORTWITH(SORTWITH));
     addNamedWarpScriptFunction(new RSORT(RSORT));
     addNamedWarpScriptFunction(new LASTSORT(LASTSORT));
     addNamedWarpScriptFunction(new METASORT(METASORT));
@@ -1612,6 +1659,7 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new VALUESPLIT(VALUESPLIT));
     addNamedWarpScriptFunction(new TICKLIST(TICKLIST));
     addNamedWarpScriptFunction(new COMMONTICKS(COMMONTICKS));
+    addNamedWarpScriptFunction(new GOLDWRAP(GOLDWRAP));
     addNamedWarpScriptFunction(new WRAP(WRAP));
     addNamedWarpScriptFunction(new WRAP(WRAPRAW, false, true, true));
     addNamedWarpScriptFunction(new WRAP(WRAPFAST, false, false, true));
@@ -1701,12 +1749,42 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new NULL(NULL));
     addNamedWarpScriptFunction(new ISNULL(ISNULL));
     addNamedWarpScriptFunction(new MapperReplace.Builder("mapper.replace"));
-    addNamedWarpScriptFunction(new MAPPERGT("mapper.gt"));
-    addNamedWarpScriptFunction(new MAPPERGE("mapper.ge"));
-    addNamedWarpScriptFunction(new MAPPEREQ("mapper.eq"));
-    addNamedWarpScriptFunction(new MAPPERNE("mapper.ne"));
-    addNamedWarpScriptFunction(new MAPPERLE("mapper.le"));
-    addNamedWarpScriptFunction(new MAPPERLT("mapper.lt"));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_GT, CompareTo.Compared.VALUE, CompareTo.Comparison.GT));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_GE, CompareTo.Compared.VALUE, CompareTo.Comparison.GE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_EQ, CompareTo.Compared.VALUE, CompareTo.Comparison.EQ));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_NE, CompareTo.Compared.VALUE, CompareTo.Comparison.NE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_LE, CompareTo.Compared.VALUE, CompareTo.Comparison.LE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_LT, CompareTo.Compared.VALUE, CompareTo.Comparison.LT));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_GT_TICK, CompareTo.Compared.TICK, CompareTo.Comparison.GT));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_GE_TICK, CompareTo.Compared.TICK, CompareTo.Comparison.GE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_EQ_TICK, CompareTo.Compared.TICK, CompareTo.Comparison.EQ));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_NE_TICK, CompareTo.Compared.TICK, CompareTo.Comparison.NE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_LE_TICK, CompareTo.Compared.TICK, CompareTo.Comparison.LE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_LT_TICK, CompareTo.Compared.TICK, CompareTo.Comparison.LT));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_GT_LAT, CompareTo.Compared.LAT, CompareTo.Comparison.GT));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_GE_LAT, CompareTo.Compared.LAT, CompareTo.Comparison.GE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_EQ_LAT, CompareTo.Compared.LAT, CompareTo.Comparison.EQ));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_NE_LAT, CompareTo.Compared.LAT, CompareTo.Comparison.NE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_LE_LAT, CompareTo.Compared.LAT, CompareTo.Comparison.LE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_LT_LAT, CompareTo.Compared.LAT, CompareTo.Comparison.LT));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_GT_LON, CompareTo.Compared.LON, CompareTo.Comparison.GT));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_GE_LON, CompareTo.Compared.LON, CompareTo.Comparison.GE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_EQ_LON, CompareTo.Compared.LON, CompareTo.Comparison.EQ));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_NE_LON, CompareTo.Compared.LON, CompareTo.Comparison.NE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_LE_LON, CompareTo.Compared.LON, CompareTo.Comparison.LE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_LT_LON, CompareTo.Compared.LON, CompareTo.Comparison.LT));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_GT_HHCODE, CompareTo.Compared.HHCODE, CompareTo.Comparison.GT));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_GE_HHCODE, CompareTo.Compared.HHCODE, CompareTo.Comparison.GE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_EQ_HHCODE, CompareTo.Compared.HHCODE, CompareTo.Comparison.EQ));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_NE_HHCODE, CompareTo.Compared.HHCODE, CompareTo.Comparison.NE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_LE_HHCODE, CompareTo.Compared.HHCODE, CompareTo.Comparison.LE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_LT_HHCODE, CompareTo.Compared.HHCODE, CompareTo.Comparison.LT));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_GT_ELEV, CompareTo.Compared.ELEV, CompareTo.Comparison.GT));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_GE_ELEV, CompareTo.Compared.ELEV, CompareTo.Comparison.GE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_EQ_ELEV, CompareTo.Compared.ELEV, CompareTo.Comparison.EQ));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_NE_ELEV, CompareTo.Compared.ELEV, CompareTo.Comparison.NE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_LE_ELEV, CompareTo.Compared.ELEV, CompareTo.Comparison.LE));
+    addNamedWarpScriptFunction(new MapperCompareTo(MAPPER_LT_ELEV, CompareTo.Compared.ELEV, CompareTo.Comparison.LT));
     addNamedWarpScriptFunction(new MapperAdd.Builder("mapper.add"));
     addNamedWarpScriptFunction(new MapperMul.Builder("mapper.mul"));
     addNamedWarpScriptFunction(new MapperPow.Builder("mapper.pow"));
@@ -2342,7 +2420,7 @@ public class WarpScriptLib {
         String namespace = props.getProperty(Configuration.CONFIG_WARPSCRIPT_NAMESPACE_PREFIX + wse.getClass().getName(), "").trim(); 
         if (null != namespace && !"".equals(namespace)) {
           if (namespace.contains("%")) {
-            namespace = URLDecoder.decode(namespace, "UTF-8");
+            namespace = URLDecoder.decode(namespace, StandardCharsets.UTF_8.name());
           }
           LOG.info("LOADED extension '" + extension + "'" + " under namespace '" + namespace + "'.");
         } else {
@@ -2371,7 +2449,7 @@ public class WarpScriptLib {
         
     if (namespace.contains("%")) {
       try {
-        namespace = URLDecoder.decode(namespace, "UTF-8");
+        namespace = URLDecoder.decode(namespace, StandardCharsets.UTF_8.name());
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
