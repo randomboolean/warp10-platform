@@ -15,6 +15,7 @@
 
 package io.warp10;
 
+import io.warp10.arrow.ArrowExtension;
 import io.warp10.script.WarpScriptLib;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.junit.Ignore;
@@ -35,7 +36,7 @@ public class WarpTest {
 
   //change with your absolute path.
   private static String PROJECT_FOLDER = "/home/jc/Projects/2019/";
-  private static String WARP10_HOME = PROJECT_FOLDER + "warp10-platform/warp10/archive/warp10-2.1.0-106-g2d446747";
+  private static String WARP10_HOME = PROJECT_FOLDER + "warp10-platform/warp10/archive/warp10-2.1.0-191-g62e3eb62";
   private static String PY4J_JAR = PROJECT_FOLDER + "warp10-plugin-py4j/build/libs/warp10-plugin-py4j-41a0a63.jar";
   private static String TF_EXT_JAR = PROJECT_FOLDER + "warp10-ext-tensorflow/build/libs/warp10-ext-tensorflow-037c800.jar";
   //private static String ML_EXT_JAR = PROJECT_FOLDER + "warp10-ext-forecast/build/libs/Warp10-Forecast.jar";
@@ -48,14 +49,14 @@ public class WarpTest {
     // Loging
     //
 
-    System.setProperty("log4j.configuration", new File(WARP10_HOME + "/etc/log4j.properties").toURI().toString());
-    System.setProperty("sensision.server.port", "0");
+    //System.setProperty("log4j.configuration", new File(WARP10_HOME + "/etc/log4j.properties").toURI().toString());
+    //System.setProperty("sensision.server.port", "0");
 
     //
     // Register project extensions
     //
 
-    //WarpScriptLib.register(new MachineLearningPackage());
+    //WarpScriptLib.register(new ArrowExtension());
 
     //
     // Load jar extensions (needs to be specified in conf file)
@@ -85,7 +86,33 @@ public class WarpTest {
     System.out.println("conf file:");
     System.out.println(PROJECT_FOLDER + "warp10-platform/conf-standalone.conf");
 
-    // start Warp 10
-    Warp.main(new String[]{PROJECT_FOLDER + "warp10-platform/conf-standalone.conf"});
+    //
+    // Start Warp 10
+    //
+
+    Thread t = new Thread(new Runnable() {
+      @Override
+      public void run() {
+        try {
+          Warp.main(new String[]{PROJECT_FOLDER + "warp10-platform/conf-standalone.conf"});
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      }
+    });
+    t.start();
+
+    //
+    // Extensions
+    //
+
+    WarpScriptLib.register(new ArrowExtension());
+
+    //
+    // Let Warp10 run
+    //
+
+    t.join();
   }
+
 }

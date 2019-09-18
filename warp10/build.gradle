@@ -144,7 +144,9 @@ dependencies {
         exclude module: 'jmxtools'
         exclude module: 'jmxri'
     }
+  
     testCompile 'junit:junit:4.6'
+    testCompile 'io.warp10:warp10-ext-arrow:0.0.3'
 }
 
 jar {
