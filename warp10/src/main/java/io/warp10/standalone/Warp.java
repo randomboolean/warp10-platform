@@ -108,21 +108,6 @@ public class Warp extends WarpDist implements Runnable {
   public Warp() {
     // TODO Auto-generated constructor stub
   }
-
-  private static Map<String, String> additionalProperties = null;
-
-  public static void setAdditionalProperties(Map<String, String> additionalProperties_) {
-    additionalProperties = additionalProperties_;
-  }
-
-  private static void setMoreProperties() {
-
-    if (null != additionalProperties) {
-      for (String key : additionalProperties.keySet()) {
-        WarpConfig.setProperty(key, additionalProperties.get(key));
-      }
-    }
-  }
   
   public static void main(String[] args) throws Exception {
     
@@ -138,7 +123,6 @@ public class Warp extends WarpDist implements Runnable {
     Sensision.set(SensisionConstants.SENSISION_CLASS_WARP_REVISION, labels, Revision.REVISION);
 
     setProperties(args);
-    setMoreProperties();
     
     Properties properties = getProperties();
     
