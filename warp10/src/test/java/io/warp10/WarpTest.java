@@ -17,29 +17,14 @@ package io.warp10;
 
 import io.warp10.arrow.ArrowExtension;
 import io.warp10.script.WarpScriptLib;
-import org.apache.commons.io.filefilter.WildcardFileFilter;
-import org.junit.Ignore;
+import io.warp10.script.ext.inventory.InventoryWarpScriptExtension;
 import org.junit.Test;
 import io.warp10.standalone.Warp;
-import java.io.File;
-import java.io.FileFilter;
-import java.lang.reflect.Method;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 public class WarpTest {
 
   //change with your absolute path.
-  private static String PROJECT_FOLDER = "/home/jc/Projects/2019/";
-  private static String WARP10_HOME = PROJECT_FOLDER + "warp10-platform/warp10/archive/warp10-2.1.0-191-g62e3eb62";
-  private static String PY4J_JAR = PROJECT_FOLDER + "warp10-plugin-py4j/build/libs/warp10-plugin-py4j-41a0a63.jar";
-  private static String TF_EXT_JAR = PROJECT_FOLDER + "warp10-ext-tensorflow/build/libs/warp10-ext-tensorflow-037c800.jar";
-  //private static String ML_EXT_JAR = PROJECT_FOLDER + "warp10-ext-forecast/build/libs/Warp10-Forecast.jar";
+  private static String CONF = "/home/jc/Projects/2019/warp10-platform/conf-standalone.conf";
 
   //@Ignore
   @Test
@@ -49,42 +34,11 @@ public class WarpTest {
     // Loging
     //
 
-    //System.setProperty("log4j.configuration", new File(WARP10_HOME + "/etc/log4j.properties").toURI().toString());
+    //System.setProperty("log4j.configuration", new File("/home/jc/Projects/2019/warp10-platform/etc/log4j.properties").toURI().toString());
     //System.setProperty("sensision.server.port", "0");
 
-    //
-    // Register project extensions
-    //
-
-    //WarpScriptLib.register(new ArrowExtension());
-
-    //
-    // Load jar extensions (needs to be specified in conf file)
-    //
-
-    List<File> jars = new ArrayList<File>();
-    //jars.addAll(Arrays.asList((new File(WARP10_HOME + "/lib")).listFiles((FileFilter) new WildcardFileFilter("*.jar"))));
-    jars.add(new File(PY4J_JAR));
-    jars.add(new File(TF_EXT_JAR));
-    //jars.add(new File(ML_EXT_JAR));
-
-    URLClassLoader cl = (URLClassLoader) WarpScriptLib.class.getClassLoader();
-    Method m = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
-    m.setAccessible(true);
-
-    for (int i = 0; i < jars.size(); i++) {
-      URL url = jars.get(i).toURL();
-      m.invoke(cl, url);
-      System.out.println("Loading " + url.toString());
-    }
-
-    // Additional configuration properties
-    //Map<String, String> props = new HashMap<String, String>();
-    //props.put("mlextension.customer.key", "customer:simplekeyr");
-    //Warp.setAdditionalProperties(props);
-
     System.out.println("conf file:");
-    System.out.println(PROJECT_FOLDER + "warp10-platform/conf-standalone.conf");
+    System.out.println(CONF);
 
     //
     // Start Warp 10
@@ -94,7 +48,7 @@ public class WarpTest {
       @Override
       public void run() {
         try {
-          Warp.main(new String[]{PROJECT_FOLDER + "warp10-platform/conf-standalone.conf"});
+          Warp.main(new String[]{CONF});
         } catch (Exception e) {
           throw new RuntimeException(e);
         }
@@ -107,6 +61,7 @@ public class WarpTest {
     //
 
     WarpScriptLib.register(new ArrowExtension());
+    WarpScriptLib.register(new InventoryWarpScriptExtension());
 
     //
     // Let Warp10 run
