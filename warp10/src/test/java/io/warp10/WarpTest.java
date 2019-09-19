@@ -21,6 +21,13 @@ import io.warp10.script.ext.inventory.InventoryWarpScriptExtension;
 import org.junit.Test;
 import io.warp10.standalone.Warp;
 
+import java.io.File;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.List;
+
 public class WarpTest {
 
   //change with your absolute path.
@@ -39,6 +46,23 @@ public class WarpTest {
 
     System.out.println("conf file:");
     System.out.println(CONF);
+
+    //
+    // Load jars that can't be simply added as dependencies
+    //
+
+    List<File> jars = new ArrayList<File>();
+    jars.add(new File("/home/jc/Projects/2019/warp10-ext-forecast/build/libs/Warp10-Forecast-0.0.192.jar"));
+
+    URLClassLoader cl = (URLClassLoader) WarpScriptLib.class.getClassLoader();
+    Method m = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
+    m.setAccessible(true);
+
+    for (int i = 0; i < jars.size(); i++) {
+      URL url = jars.get(i).toURL();
+      m.invoke(cl, url);
+      System.out.println("Loading " + url.toString());
+    }
 
     //
     // Start Warp 10
