@@ -440,11 +440,21 @@ public class Configuration {
    * Port on which the DirectoryService will listen
    */
   public static final String DIRECTORY_PORT = "directory.port";
-  
+
+  /**
+   * TCP Backlog applied to the DirectoryService listener
+   */
+  public static final String DIRECTORY_TCP_BACKLOG = "directory.tcp.backlog";
+
   /**
    * Port the streaming directory service listens to
    */
   public static final String DIRECTORY_STREAMING_PORT = "directory.streaming.port";
+
+  /**
+   * TCP Backlog applied to the streaming directory service listener
+   */
+  public static final String DIRECTORY_STREAMING_TCP_BACKLOG = "directory.streaming.tcp.backlog";
 
   /**
    * Should we ignore the proxy settings when doing a streaming request?
@@ -672,6 +682,11 @@ public class Configuration {
    */
   public static final String INGRESS_PORT = "ingress.port";
   
+  /**
+   * TCP Backlog applied to the ingress server listener
+   */
+  public static final String INGRESS_TCP_BACKLOG = "ingress.tcp.backlog";
+
   /**
    * Size of metadata cache in number of entries
    */
@@ -1108,7 +1123,12 @@ public class Configuration {
    * Port on which to listen
    */
   public static final String PLASMA_FRONTEND_PORT = "plasma.frontend.port";
-  
+
+  /**
+   * TCP Backlog applied to the Plasma listener
+   */
+  public static final String PLASMA_FRONTEND_TCP_BACKLOG = "plasma.frontend.tcp.backlog";
+
   /**
    * Number of acceptors
    */
@@ -1347,6 +1367,13 @@ public class Configuration {
   /////////////////////////////////////////////////////////////////////////////////////////
   
   /**
+   * Geo Time Series count above which block caching will be disabled for LevelDB.
+   * The goal is to limit the cache pollution when scanning large chunks of data.
+   * Note that this limit is per fetch call to the backend, which means that in the case of parallel scanners it is for each parallel fetch attempt.
+   */
+  public static final String LEVELDB_BLOCKCACHE_GTS_THRESHOLD = "leveldb.blockcache.gts.threshold";
+
+  /**
    * Rate of synchronous writes for the datapoints (update/deletes).
    * This is a double between 0.0 (all writes asynchronous) and 1.0 (all writes synchronous).
    * The default value is 1.0 (all writes are synchronous)
@@ -1425,6 +1452,11 @@ public class Configuration {
    * Port to bind to for listening to incoming connections.
    */
   public static final String STANDALONE_PORT = "standalone.port";
+
+  /**
+   * TCP Backlog applied to incoming connections listener.
+   */
+  public static final String STANDALONE_TCP_BACKLOG = "standalone.tcp.backlog";
 
   /**
    * Number of Jetty acceptors
@@ -1729,7 +1761,12 @@ public class Configuration {
    * Port onto which the egress server should listen
    */
   public static final String EGRESS_PORT = "egress.port";
-  
+
+  /**
+   * TCP Backlog applied to the egress server listener
+   */
+  public static final String EGRESS_TCP_BACKLOG = "egress.tcp.backlog";
+
   /**
    * Host onto which the egress server should listen
    */
@@ -1842,6 +1879,7 @@ public class Configuration {
   /**
    * Geo Time Series count threshold above which block caching will be disabled for HBase scanners.
    * The goal is to limit the cache pollution when scanning large chunks of data.
+   * Note that this limit is per fetch call to the backend, which means that in the case of parallel scanners it is for each parallel fetch attempt.
    */
   public static final String EGRESS_HBASE_DATA_BLOCKCACHE_GTS_THRESHOLD = "egress.hbase.data.blockcache.gts.threshold";
   
@@ -2139,6 +2177,11 @@ public class Configuration {
    * SSL Port
    */
   public static final String _SSL_PORT = ".ssl.port";
+
+  /**
+   * SSL TCP Backlog
+   */
+  public static final String _SSL_TCP_BACKLOG = ".ssl.tcp.backlog";
 
   /**
    * SSL Host

@@ -16,41 +16,13 @@
 
 package io.warp10.continuum.store;
 
-import io.warp10.SmartPattern;
-import io.warp10.continuum.DirectoryUtil;
-import io.warp10.continuum.JettyUtil;
-import io.warp10.continuum.KafkaOffsetCounters;
-import io.warp10.continuum.LogUtil;
-import io.warp10.continuum.MetadataUtils;
-import io.warp10.continuum.MetadataUtils.MetadataID;
-import io.warp10.continuum.gts.GTSHelper;
-import io.warp10.continuum.sensision.SensisionConstants;
-import io.warp10.continuum.store.thrift.data.DirectoryFindRequest;
-import io.warp10.continuum.store.thrift.data.DirectoryFindResponse;
-import io.warp10.continuum.store.thrift.data.DirectoryGetRequest;
-import io.warp10.continuum.store.thrift.data.DirectoryGetResponse;
-import io.warp10.continuum.store.thrift.data.DirectoryStatsRequest;
-import io.warp10.continuum.store.thrift.data.DirectoryStatsResponse;
-import io.warp10.continuum.store.thrift.data.Metadata;
-import io.warp10.continuum.store.thrift.service.DirectoryService;
-import io.warp10.continuum.thrift.data.LoggingEvent;
-import io.warp10.crypto.CryptoUtils;
-import io.warp10.crypto.KeyStore;
-import io.warp10.crypto.OrderPreservingBase64;
-import io.warp10.crypto.SipHashInline;
-import io.warp10.script.HyperLogLogPlus;
-import io.warp10.script.WarpScriptException;
-import io.warp10.script.functions.PARSESELECTOR;
-import io.warp10.sensision.Sensision;
-import io.warp10.warp.sdk.DirectoryPlugin;
-import io.warp10.warp.sdk.DirectoryPlugin.GTS;
-
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigInteger;
-import java.net.InetSocketAddress;
+import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -85,15 +57,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import kafka.consumer.Consumer;
-import kafka.consumer.ConsumerConfig;
-import kafka.consumer.ConsumerIterator;
-import kafka.consumer.KafkaStream;
-import kafka.javaapi.consumer.ConsumerConnector;
-import kafka.message.MessageAndMetadata;
-
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
@@ -132,7 +96,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.MapMaker;
-import com.google.common.primitives.Longs;
 import com.netflix.curator.framework.CuratorFramework;
 import com.netflix.curator.framework.CuratorFrameworkFactory;
 import com.netflix.curator.retry.RetryNTimes;
@@ -141,6 +104,41 @@ import com.netflix.curator.x.discovery.ServiceDiscoveryBuilder;
 import com.netflix.curator.x.discovery.ServiceInstance;
 import com.netflix.curator.x.discovery.ServiceInstanceBuilder;
 import com.netflix.curator.x.discovery.ServiceType;
+
+import io.warp10.SmartPattern;
+import io.warp10.continuum.DirectoryUtil;
+import io.warp10.continuum.JettyUtil;
+import io.warp10.continuum.KafkaOffsetCounters;
+import io.warp10.continuum.LogUtil;
+import io.warp10.continuum.MetadataUtils;
+import io.warp10.continuum.MetadataUtils.MetadataID;
+import io.warp10.continuum.gts.GTSHelper;
+import io.warp10.continuum.sensision.SensisionConstants;
+import io.warp10.continuum.store.thrift.data.DirectoryFindRequest;
+import io.warp10.continuum.store.thrift.data.DirectoryFindResponse;
+import io.warp10.continuum.store.thrift.data.DirectoryGetRequest;
+import io.warp10.continuum.store.thrift.data.DirectoryGetResponse;
+import io.warp10.continuum.store.thrift.data.DirectoryStatsRequest;
+import io.warp10.continuum.store.thrift.data.DirectoryStatsResponse;
+import io.warp10.continuum.store.thrift.data.Metadata;
+import io.warp10.continuum.store.thrift.service.DirectoryService;
+import io.warp10.continuum.thrift.data.LoggingEvent;
+import io.warp10.crypto.CryptoUtils;
+import io.warp10.crypto.KeyStore;
+import io.warp10.crypto.OrderPreservingBase64;
+import io.warp10.crypto.SipHashInline;
+import io.warp10.script.HyperLogLogPlus;
+import io.warp10.script.WarpScriptException;
+import io.warp10.script.functions.PARSESELECTOR;
+import io.warp10.sensision.Sensision;
+import io.warp10.warp.sdk.DirectoryPlugin;
+import io.warp10.warp.sdk.DirectoryPlugin.GTS;
+import kafka.consumer.Consumer;
+import kafka.consumer.ConsumerConfig;
+import kafka.consumer.ConsumerIterator;
+import kafka.consumer.KafkaStream;
+import kafka.javaapi.consumer.ConsumerConnector;
+import kafka.message.MessageAndMetadata;
 
 /**
  * Manages Metadata for a subset of known GTS.
@@ -221,7 +219,9 @@ public class Directory extends AbstractHandler implements DirectoryService.Iface
   private final int remainder;
   private String host;
   private int port;
+  private int tcpBacklog;
   private int streamingport;
+  private int streamingTcpBacklog;
   private int streamingselectors;
   private int streamingacceptors;
     
@@ -344,6 +344,16 @@ public class Directory extends AbstractHandler implements DirectoryService.Iface
    * Should we register our service in ZK
    */
   private final boolean register;
+  
+  /**
+   * Service instance
+   */
+  private ServiceInstance<Map> instance = null;
+  
+  /**
+   * Thread used as shutdown hook for deregistering instance
+   */
+  private Thread deregisterHook = null;
   
   /**
    * Should we initialize Directory upon startup by reading from HBase
@@ -678,6 +688,10 @@ public class Directory extends AbstractHandler implements DirectoryService.Iface
                 //
                 
                 String owner = metadata.getLabels().get(Constants.OWNER_LABEL);
+
+                String app = metadata.getLabels().get(Constants.APPLICATION_LABEL);
+                Map<String,String> sensisionLabels = new HashMap<String,String>();
+                sensisionLabels.put(SensisionConstants.SENSISION_LABEL_APPLICATION, app);
                 
                 synchronized(classesPerOwner) {
                   Set<String> classes = classesPerOwner.get(owner);
@@ -690,6 +704,7 @@ public class Directory extends AbstractHandler implements DirectoryService.Iface
                   classes.add(metadata.getName());
                 }
 
+                Sensision.update(SensisionConstants.SENSISION_CLASS_CONTINUUM_DIRECTORY_GTS_PERAPP, sensisionLabels, 1);
                 Sensision.set(SensisionConstants.SENSISION_CLASS_CONTINUUM_DIRECTORY_OWNERS, Sensision.EMPTY_LABELS, classesPerOwner.size());
 
                 synchronized(metadatas.get(metadata.getName())) {
@@ -846,7 +861,9 @@ public class Directory extends AbstractHandler implements DirectoryService.Iface
     
     this.host = properties.getProperty(io.warp10.continuum.Configuration.DIRECTORY_HOST);
     this.port = Integer.parseInt(properties.getProperty(io.warp10.continuum.Configuration.DIRECTORY_PORT));
+    this.tcpBacklog = Integer.parseInt(properties.getProperty(io.warp10.continuum.Configuration.DIRECTORY_TCP_BACKLOG, "0"));
     this.streamingport = Integer.parseInt(properties.getProperty(io.warp10.continuum.Configuration.DIRECTORY_STREAMING_PORT));
+    this.streamingTcpBacklog = Integer.parseInt(properties.getProperty(io.warp10.continuum.Configuration.DIRECTORY_STREAMING_TCP_BACKLOG, "0"));
     this.streamingacceptors = Integer.parseInt(properties.getProperty(io.warp10.continuum.Configuration.DIRECTORY_STREAMING_ACCEPTORS));
     this.streamingselectors = Integer.parseInt(properties.getProperty(io.warp10.continuum.Configuration.DIRECTORY_STREAMING_SELECTORS));
     
@@ -1034,6 +1051,7 @@ public class Directory extends AbstractHandler implements DirectoryService.Iface
     connector.setIdleTimeout(idleTimeout);
     connector.setPort(this.streamingport);
     connector.setHost(host);
+    connector.setAcceptQueueSize(this.streamingTcpBacklog);
     connector.setName("Directory Streaming Service");
     
     server.setConnectors(new Connector[] { connector });
@@ -1061,6 +1079,27 @@ public class Directory extends AbstractHandler implements DirectoryService.Iface
   public void run() {
     
     //
+    // Add a shutdown hook to unregister Directory
+    //
+    
+    if (this.register) {
+      final Directory self = this;
+      this.deregisterHook = new Thread() {
+        @Override
+        public void run() {
+          try {
+            LOG.info("Unregistering from ZooKeeper.");
+            self.sd.close();
+            LOG.info("Directory successfully unregistered from ZooKeeper.");
+          } catch (Exception e) {
+            LOG.error("Error while unregistering Directory.", e);
+          }
+        }
+      };
+      Runtime.getRuntime().addShutdownHook(deregisterHook);
+    }
+
+    //
     // Wait until cache has been populated
     //
     
@@ -1078,8 +1117,7 @@ public class Directory extends AbstractHandler implements DirectoryService.Iface
     Runtime.getRuntime().gc();
     nano = System.nanoTime() - nano;
     LOG.info("GC performed in " + (nano / 1000000.0D) + " ms.");
-    
-    
+        
     this.fullyInitialized.set(true);
     
     Sensision.set(SensisionConstants.SENSISION_CLASS_CONTINUUM_DIRECTORY_JVM_FREEMEMORY, Sensision.EMPTY_LABELS, Runtime.getRuntime().freeMemory());
@@ -1090,11 +1128,11 @@ public class Directory extends AbstractHandler implements DirectoryService.Iface
         
     DirectoryService.Processor processor = new DirectoryService.Processor(this);
     
-    ServiceInstance<Map> instance = null;
+    this.instance = null;
 
     try {
-      InetSocketAddress bindAddress = new InetSocketAddress(this.host, this.port);
-      TServerTransport transport = new TServerSocket(bindAddress);
+      InetAddress bindAddress = InetAddress.getByName(this.host);
+      TServerTransport transport = new TServerSocket(new ServerSocket(this.port, this.tcpBacklog, bindAddress));
       TThreadPoolServer.Args args = new TThreadPoolServer.Args(transport);
       args.processor(processor);
       //
@@ -1134,7 +1172,7 @@ public class Directory extends AbstractHandler implements DirectoryService.Iface
       }
       builder.payload(payload);
 
-      instance = builder.build();
+      this.instance = builder.build();
 
       if (this.register) {
         sd.start();
@@ -1152,6 +1190,12 @@ public class Directory extends AbstractHandler implements DirectoryService.Iface
         try {
           sd.unregisterService(instance);
         } catch (Exception e) {
+        }        
+      }
+      if (null != deregisterHook) {
+        try {
+          Runtime.getRuntime().removeShutdownHook(deregisterHook);
+        } catch (Exception e) {          
         }
       }
     }
@@ -1498,6 +1542,9 @@ public class Directory extends AbstractHandler implements DirectoryService.Iface
               continue;
             }
             
+            String app = metadata.getLabels().get(Constants.APPLICATION_LABEL);
+            Map<String,String> sensisionLabels = new HashMap<String,String>();
+            sensisionLabels.put(SensisionConstants.SENSISION_LABEL_APPLICATION, app);
             
             //
             // Check the source of the metadata
@@ -1562,6 +1609,7 @@ public class Directory extends AbstractHandler implements DirectoryService.Iface
                     }                    
                   }
                   Sensision.update(SensisionConstants.SENSISION_CLASS_CONTINUUM_DIRECTORY_GTS, Sensision.EMPTY_LABELS, -1);
+                  Sensision.update(SensisionConstants.SENSISION_CLASS_CONTINUUM_DIRECTORY_GTS_PERAPP, sensisionLabels, -1);
                 }
               }
 
@@ -1851,6 +1899,7 @@ public class Directory extends AbstractHandler implements DirectoryService.Iface
               // 128bits
               if (null == directory.metadatas.get(metadata.getName()).put(labelsId, metadata)) {
                 Sensision.update(SensisionConstants.SENSISION_CLASS_CONTINUUM_DIRECTORY_GTS, Sensision.EMPTY_LABELS, 1);
+                Sensision.update(SensisionConstants.SENSISION_CLASS_CONTINUUM_DIRECTORY_GTS_PERAPP, sensisionLabels, 1);
               }
            
             } finally {

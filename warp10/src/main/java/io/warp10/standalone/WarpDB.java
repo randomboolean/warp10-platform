@@ -310,6 +310,9 @@ public class WarpDB extends Thread implements DB {
   
   @Override
   public DBIterator iterator(ReadOptions options) {
+    if (null == options) {
+      return iterator();
+    }
     if (null != options.snapshot()) {
       throw new RuntimeException("Snapshots are unsupported.");
     }
@@ -323,7 +326,7 @@ public class WarpDB extends Thread implements DB {
         mutex.unlock();
       }
     }    
-    return new WarpIterator(pendingOps, this.db.iterator(options));
+    return new WarpIterator(pendingOps, this.db.iterator(options));    
   }
   
   @Override
