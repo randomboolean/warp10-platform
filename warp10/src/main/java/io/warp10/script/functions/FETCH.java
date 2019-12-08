@@ -16,34 +16,6 @@
 
 package io.warp10.script.functions;
 
-import io.warp10.WarpDist;
-import io.warp10.continuum.TimeSource;
-import io.warp10.continuum.Tokens;
-import io.warp10.continuum.egress.EgressFetchHandler;
-import io.warp10.continuum.gts.GTSDecoder;
-import io.warp10.continuum.gts.GTSHelper;
-import io.warp10.continuum.gts.GeoTimeSerie;
-import io.warp10.continuum.gts.GeoTimeSerie.TYPE;
-import io.warp10.continuum.sensision.SensisionConstants;
-import io.warp10.continuum.store.Constants;
-import io.warp10.continuum.store.DirectoryClient;
-import io.warp10.continuum.store.GTSDecoderIterator;
-import io.warp10.continuum.store.MetadataIterator;
-import io.warp10.continuum.store.StoreClient;
-import io.warp10.continuum.store.thrift.data.DirectoryRequest;
-import io.warp10.continuum.store.thrift.data.MetaSet;
-import io.warp10.continuum.store.thrift.data.Metadata;
-import io.warp10.crypto.CryptoUtils;
-import io.warp10.crypto.KeyStore;
-import io.warp10.crypto.OrderPreservingBase64;
-import io.warp10.crypto.SipHashInline;
-import io.warp10.quasar.token.thrift.data.ReadToken;
-import io.warp10.script.NamedWarpScriptFunction;
-import io.warp10.script.WarpScriptStackFunction;
-import io.warp10.script.WarpScriptException;
-import io.warp10.script.WarpScriptStack;
-import io.warp10.sensision.Sensision;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -68,14 +40,40 @@ import org.apache.thrift.protocol.TCompactProtocol;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
-import com.geoxp.GeoXPLib.GeoXPShape;
+import io.warp10.WarpDist;
+import io.warp10.continuum.TimeSource;
+import io.warp10.continuum.Tokens;
+import io.warp10.continuum.egress.EgressFetchHandler;
+import io.warp10.continuum.gts.GTSDecoder;
+import io.warp10.continuum.gts.GTSHelper;
+import io.warp10.continuum.gts.GeoTimeSerie;
+import io.warp10.continuum.gts.GeoTimeSerie.TYPE;
+import io.warp10.continuum.sensision.SensisionConstants;
+import io.warp10.continuum.store.Constants;
+import io.warp10.continuum.store.DirectoryClient;
+import io.warp10.continuum.store.GTSDecoderIterator;
+import io.warp10.continuum.store.MetadataIterator;
+import io.warp10.continuum.store.StoreClient;
+import io.warp10.continuum.store.thrift.data.DirectoryRequest;
+import io.warp10.continuum.store.thrift.data.MetaSet;
+import io.warp10.continuum.store.thrift.data.Metadata;
+import io.warp10.crypto.CryptoUtils;
+import io.warp10.crypto.KeyStore;
+import io.warp10.crypto.OrderPreservingBase64;
+import io.warp10.crypto.SipHashInline;
+import io.warp10.quasar.token.thrift.data.ReadToken;
+import io.warp10.script.NamedWarpScriptFunction;
+import io.warp10.script.WarpScriptException;
+import io.warp10.script.WarpScriptStack;
+import io.warp10.script.WarpScriptStackFunction;
+import io.warp10.sensision.Sensision;
 /**
  * Fetch GeoTimeSeries from continuum
  * FIXME(hbs): we need to retrieve an OAuth token, where do we put it?
  *
  * The top of the stack must contain a list of the following parameters
  * 
- * @param token The OAuth 2.0 token to use for data retrieval
+ * @param token The token to use for data retrieval
  * @param classSelector  Class selector.
  * @param labelsSelectors Map of label name to label selector.
  * @param now Most recent timestamp to consider (in us since the Epoch)
@@ -108,14 +106,17 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
   public static final String PARAM_GTS = "gts";
   public static final String PARAM_ACTIVE_AFTER = "active.after";
   public static final String PARAM_QUIET_AFTER = "quiet.after";
+  public static final String PARAM_BOUNDARY_PRE = "boundary.pre";
+  public static final String PARAM_BOUNDARY_POST = "boundary.post";
+  public static final String PARAM_BOUNDARY = "boundary";
+  public static final String PARAM_SKIP = "skip";
+  public static final String PARAM_SAMPLE = "sample";
   
   public static final String POSTFETCH_HOOK = "postfetch";
   
   private DateTimeFormatter fmt = ISODateTimeFormat.dateTimeParser();
   
   private WarpScriptStackFunction listTo = new LISTTO("");
-  
-  private final boolean fromArchive;
   
   private final TYPE forcedType;
   
@@ -124,9 +125,8 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
 
   private final byte[] AES_METASET;
   
-  public FETCH(String name, boolean fromArchive, TYPE type) {
+  public FETCH(String name, TYPE type) {
     super(name);
-    this.fromArchive = fromArchive;
     this.forcedType = type;
     KeyStore ks = null;
     
@@ -212,10 +212,10 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
         
         if (start < stop) {
           endts = stop;
-          timespan = stop - start;
+          timespan = stop - start + 1;
         } else {
           endts = start;
-          timespan = start - stop;
+          timespan = start - stop + 1;
         }
       } else if (oStart instanceof Long && oStop instanceof Long) {
         endts = (long) oStart;
@@ -232,8 +232,10 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
           timespan++; // It's ok to modify a bit the count of points as it is impossible to return Long.MAX_VALUE points
         }
         params.put(PARAM_COUNT, -timespan);
+        // By default scan the whole time range from 'end' to the beginnings of times
+        params.put(PARAM_START, Long.MIN_VALUE);
       } else {
-        params.put(PARAM_TIMESPAN, timespan);
+        params.put(PARAM_START, endts - timespan + 1);
       }
       
       //
@@ -399,6 +401,16 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
     Metadata lastMetadata = null;
     long lastCount = 0L;
     
+    int preBoundary = 0;
+    int postBoundary = 0;
+    
+    if (params.containsKey(PARAM_BOUNDARY_PRE)) {
+      preBoundary = (int) params.get(PARAM_BOUNDARY_PRE);
+    }
+    if (params.containsKey(PARAM_BOUNDARY_POST)) {
+      postBoundary = (int) params.get(PARAM_BOUNDARY_POST);
+    }
+    
     try {
       while(iter.hasNext()) {
         
@@ -442,7 +454,23 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
         // then one from another, then one from the first one.
         //
               
-        long timespan = params.containsKey(PARAM_TIMESPAN) ? (long) params.get(PARAM_TIMESPAN) : - ((long) params.get(PARAM_COUNT));
+        long count = -1L;
+
+        if (params.containsKey(PARAM_COUNT)) {
+          count = (long) params.get(PARAM_COUNT);
+        }
+        
+        if (params.containsKey(PARAM_TIMESPAN)) {
+          long timespan = (long) params.get(PARAM_TIMESPAN);
+          
+          if (timespan < 0 && -1L == count) {
+            count = -timespan;
+          }          
+        }
+
+        long then = (long) params.get(PARAM_START);
+        long skip = (long) params.getOrDefault(PARAM_SKIP, 0L);        
+        double sample = (double) params.getOrDefault(PARAM_SAMPLE, 1.0D);
         
         TYPE type = (TYPE) params.get(PARAM_TYPE);
 
@@ -459,9 +487,17 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
         
         TYPE lastType = TYPE.UNDEFINED;
         
-        try (GTSDecoderIterator gtsiter = gtsStore.fetch(rtoken, metadatas, (long) params.get(PARAM_END), timespan, fromArchive, writeTimestamp)) {
-          while(gtsiter.hasNext()) {
+        long end = (long) params.get(PARAM_END);
+        
+        int boundary = 0;
+        
+        try (GTSDecoderIterator gtsiter = gtsStore.fetch(rtoken, metadatas, end, then, count, skip, sample, writeTimestamp, preBoundary, postBoundary)) {
+          while(gtsiter.hasNext()) {           
             GTSDecoder decoder = gtsiter.next();
+
+            if (null == base) {
+              boundary = 0;
+            }
             
             boolean identical = true;
 
@@ -486,7 +522,8 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
                 uuid = new java.util.UUID(decoder.getClassId(), decoder.getLabelsId());
               }
 
-              long count = 0;
+              long dpcount = 0;
+              long postB = 0;
               
               Metadata decoderMeta = new Metadata(decoder.getMetadata());
               // Remove producer/owner labels
@@ -498,16 +535,24 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
               while(decoder.next()) {
                 
                 // If we've read enough data, exit
-                if (timespan < 0 && lastCount + count >= -timespan) {
+                if (count >= 0 && lastCount + dpcount >= count) {
                   break;
                 }
                 
-                count++;
                 long ts = decoder.getTimestamp();
                 long location = decoder.getLocation();
                 long elevation = decoder.getElevation();
                 Object value = decoder.getBinaryValue();
-                
+
+                // When fetching per count, only increase 'count' when
+                // timestamp is before the end timestamp so we do not
+                // increase dpcount for the post boundary
+                if (-1L == count || ts <= end) {
+                  dpcount++;
+                } else if (ts > end) {
+                  postB++;
+                }
+
                 int gtsidx = 0;
                 String typename = "DOUBLE";
                 
@@ -544,14 +589,14 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
                 GTSHelper.setValue(base, ts, location, elevation, value, false);                
               }
               
-              if (fetched.addAndGet(count) > fetchLimit) {
+              if (fetched.addAndGet(count + postB) > fetchLimit) {
                 Map<String,String> sensisionLabels = new HashMap<String, String>();
                 sensisionLabels.put(SensisionConstants.SENSISION_LABEL_CONSUMERID, Tokens.getUUID(rtoken.getBilledId()));
                 Sensision.update(SensisionConstants.SENSISION_CLASS_WARPSCRIPT_FETCHCOUNT_EXCEEDED, sensisionLabels, 1);
                 throw new WarpScriptException(getName() + " exceeded limit of " + fetchLimit + " datapoints, current count is " + fetched.get());
               }
 
-              lastCount += count;
+              lastCount += dpcount;
               
               continue;
             }
@@ -572,11 +617,24 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
               lastType = gts.getType();
             }
         
-            if (timespan < 0 && lastCount + GTSHelper.nvalues(gts) > -timespan) {
+            if (null == base && count >= 0 && postBoundary > 0) {
+              // This is the first GTS, so we need to count the size of the post boundary
+              // so we get a correct estimate of the number of datapoints we fetched
+              for (int i = 0; i < GTSHelper.nvalues(gts); i++) {
+                if (GTSHelper.tickAtIndex(gts, i) > end) {
+                  boundary++;
+                } else {
+                  // We can exit as soon as we find a timestamp <= end
+                  break;                  
+                }
+              }
+            }
+            
+            if (count >= 0 && lastCount + GTSHelper.nvalues(gts) - boundary > count) {
               // We would add too many datapoints, we will shrink the GTS.
               // As it it sorted in reverse order of the ticks (since the datapoints are organized
               // this way in HBase), we just need to shrink the GTS.
-              gts = GTSHelper.shrinkTo(gts, (int) Math.max(-timespan - lastCount, 0));
+              gts = GTSHelper.shrinkTo(gts, (int) Math.max(count - lastCount + boundary, 0));
             }
             
             lastCount += GTSHelper.nvalues(gts);
@@ -815,9 +873,22 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
     
     if (map.containsKey(PARAM_TIMESPAN)) {
       params.put(PARAM_TIMESPAN, (long) map.get(PARAM_TIMESPAN));
+      
+      if ((long) params.get(PARAM_TIMESPAN) < 0) {
+        params.put(PARAM_COUNT, - ((long) params.get(PARAM_TIMESPAN)));
+        // By default scan the whole time range from 'end' to the beginnings of times
+        params.put(PARAM_START, Long.MIN_VALUE);
+      } else {
+        params.put(PARAM_START, (long) params.get(PARAM_END) - (long) params.get(PARAM_TIMESPAN) + 1);
+      }
     } else if (map.containsKey(PARAM_COUNT)) {
       params.put(PARAM_COUNT, (long) map.get(PARAM_COUNT));
-    } else if (map.containsKey(PARAM_START)) {
+      // By default scan the whole time range from 'end' to the beginnings of times
+      params.put(PARAM_START, Long.MIN_VALUE);
+    }
+    
+    // If we either have no timespan or a negative one, check if we have a start timestamp
+    if ((!params.containsKey(PARAM_TIMESPAN) || ((long) params.get(PARAM_TIMESPAN) < 0)) && map.containsKey(PARAM_START)) {
       long end = (long) params.get(PARAM_END);
       long start;
       
@@ -831,18 +902,15 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
         }
       }
       
-      long timespan;
-      
-      if (start < end) {
-        timespan = end - start;
-      } else {
-        timespan = start - end;
+      if (start > end) {
+        long tmp = end;
         end = start;
+        start = tmp;
       }
       
+      params.put(PARAM_START, start);
       params.put(PARAM_END, end);
-      params.put(PARAM_TIMESPAN, timespan);
-    } else {
+    } else if (!map.containsKey(PARAM_COUNT)){
       throw new WarpScriptException(getName() + " Missing parameter '" + PARAM_TIMESPAN + "' or '" + PARAM_COUNT + "' or '" + PARAM_START + "'");
     }
 
@@ -975,6 +1043,60 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
       params.put(PARAM_SHOWUUID, map.get(PARAM_SHOWUUID));
     }
     
+    if (map.containsKey(PARAM_BOUNDARY)) {
+      Object o = map.get(PARAM_BOUNDARY);
+      if (!(o instanceof Long)) {
+        throw new WarpScriptException(getName() + " Invalid type for parameter '" + PARAM_BOUNDARY + "'.");
+      }
+      int boundary = ((Long) o).intValue();
+      params.put(PARAM_BOUNDARY_PRE, boundary);
+      params.put(PARAM_BOUNDARY_POST, boundary);
+    }
+
+    if (map.containsKey(PARAM_BOUNDARY_PRE)) {
+      Object o = map.get(PARAM_BOUNDARY_PRE);
+      if (!(o instanceof Long)) {
+        throw new WarpScriptException(getName() + " Invalid type for parameter '" + PARAM_BOUNDARY_PRE + "'.");
+      }
+      int boundary = ((Long) o).intValue();
+      params.put(PARAM_BOUNDARY_PRE, boundary);
+    }
+
+    if (map.containsKey(PARAM_BOUNDARY_POST)) {
+      Object o = map.get(PARAM_BOUNDARY_POST);
+      if (!(o instanceof Long)) {
+        throw new WarpScriptException(getName() + " Invalid type for parameter '" + PARAM_BOUNDARY_POST + "'.");
+      }
+      int boundary = ((Long) o).intValue();
+      params.put(PARAM_BOUNDARY_POST, boundary);
+    }
+    
+    if (map.containsKey(PARAM_SKIP)) {
+      Object o = map.get(PARAM_SKIP);
+      if (!(o instanceof Long)) {
+        throw new WarpScriptException(getName() + " Invalid type for parameter '" + PARAM_SKIP + "'.");
+      }
+      long skip = ((Long) o).longValue();
+      
+      if (skip < 0) {
+        throw new WarpScriptException(getName() + " Parameter '" + PARAM_SKIP + "' must be >= 0.");
+      }
+      params.put(PARAM_SKIP, skip);
+    }
+
+    if (map.containsKey(PARAM_SAMPLE)) {
+      Object o = map.get(PARAM_SAMPLE);
+      if (!(o instanceof Double)) {
+        throw new WarpScriptException(getName() + " Invalid type for parameter '" + PARAM_SAMPLE + "'.");
+      }
+      double sample = ((Double) o).doubleValue();
+      if (sample <= 0.0D || sample > 1.0D) {
+        throw new WarpScriptException(getName() + " Parameter '" + PARAM_SAMPLE + "' must be in the range ( 0.0, 1.0 ].");
+      }
+
+      params.put(PARAM_SAMPLE, sample);
+    }
+
     return params;
   }
 }
