@@ -373,6 +373,7 @@ public class WarpScriptLib {
   public static final String EVALSECURE = "EVALSECURE";
   public static final String SNAPSHOT = "SNAPSHOT";
   public static final String SNAPSHOTALL = "SNAPSHOTALL";
+  public static final String DEREF = "DEREF";
   public static final String LOAD = "LOAD";
   public static final String POPR = "POPR";
   public static final String CPOPR = "CPOPR";
@@ -760,6 +761,7 @@ public class WarpScriptLib {
   public static final String LTTB = "LTTB";
   public static final String TLTTB = "TLTTB";
   public static final String LOCATIONOFFSET = "LOCATIONOFFSET";
+  public static final String MOTIONSPLIT = "MOTIONSPLIT";
   public static final String FLATTEN = "FLATTEN";
   public static final String RESHAPE = "RESHAPE";
   public static final String PERMUTE = "PERMUTE";
@@ -782,6 +784,7 @@ public class WarpScriptLib {
   public static final String FILTERBY = "FILTERBY";
   public static final String UPDATE = "UPDATE";
   public static final String META = "META";
+  public static final String METADIFF = "METADIFF";
   public static final String DELETE = "DELETE";
   public static final String WEBCALL = "WEBCALL";
   public static final String MATCH = "MATCH";
@@ -1244,6 +1247,7 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new STORE(STORE));
     addNamedWarpScriptFunction(new CSTORE(CSTORE));
     addNamedWarpScriptFunction(new LOAD(LOAD));
+    addNamedWarpScriptFunction(new DEREF(DEREF));
     addNamedWarpScriptFunction(new IMPORT(IMPORT));
     addNamedWarpScriptFunction(new RUN(RUN));
     addNamedWarpScriptFunction(new DEF(DEF));
@@ -1526,11 +1530,11 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new ADDVALUE(ADDVALUE, false));
     addNamedWarpScriptFunction(new ADDVALUE(SETVALUE, true));
     addNamedWarpScriptFunction(new REMOVETICK(REMOVETICK));
-    addNamedWarpScriptFunction(new FETCH(FETCH, false, null));
-    addNamedWarpScriptFunction(new FETCH(FETCHLONG, false, TYPE.LONG));
-    addNamedWarpScriptFunction(new FETCH(FETCHDOUBLE, false, TYPE.DOUBLE));
-    addNamedWarpScriptFunction(new FETCH(FETCHSTRING, false, TYPE.STRING));
-    addNamedWarpScriptFunction(new FETCH(FETCHBOOLEAN, false, TYPE.BOOLEAN));
+    addNamedWarpScriptFunction(new FETCH(FETCH, null));
+    addNamedWarpScriptFunction(new FETCH(FETCHLONG, TYPE.LONG));
+    addNamedWarpScriptFunction(new FETCH(FETCHDOUBLE, TYPE.DOUBLE));
+    addNamedWarpScriptFunction(new FETCH(FETCHSTRING, TYPE.STRING));
+    addNamedWarpScriptFunction(new FETCH(FETCHBOOLEAN, TYPE.BOOLEAN));
     addNamedWarpScriptFunction(new LIMIT(LIMIT));
     addNamedWarpScriptFunction(new MAXGTS(MAXGTS));
     addNamedWarpScriptFunction(new FIND(FIND, false));
@@ -1605,6 +1609,7 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new LTTB(LTTB, false));
     addNamedWarpScriptFunction(new LTTB(TLTTB, true));
     addNamedWarpScriptFunction(new LOCATIONOFFSET(LOCATIONOFFSET));
+    addNamedWarpScriptFunction(new MOTIONSPLIT(MOTIONSPLIT));
     addNamedWarpScriptFunction(new FLATTEN(FLATTEN));
     addNamedWarpScriptFunction(new RESHAPE(RESHAPE));
     addNamedWarpScriptFunction(new PERMUTE(PERMUTE));
@@ -1627,6 +1632,7 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new FILTERBY(FILTERBY));
     addNamedWarpScriptFunction(new UPDATE(UPDATE));
     addNamedWarpScriptFunction(new META(META));
+    addNamedWarpScriptFunction(new META(METADIFF, true));    
     addNamedWarpScriptFunction(new DELETE(DELETE));
     addNamedWarpScriptFunction(new WEBCALL(WEBCALL));
     addNamedWarpScriptFunction(new MATCH(MATCH));
