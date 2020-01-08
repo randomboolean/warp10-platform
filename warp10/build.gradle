@@ -127,8 +127,9 @@ dependencies {
     // Test platform
     //
 
-    testCompile 'io.warp10:warp10-plugin-py4j:ba28141'
-    testCompile 'io.warp10:warp10-ext-arrow:0.0.3'
+    //testCompile 'io.warp10:warp10-plugin-py4j:ba28141'
+    //testCompile 'io.warp10:warp10-ext-arrow:0.0.3'
+    testCompile 'javax.annotation:javax.annotation-api:+'
 }
 
 jar {
