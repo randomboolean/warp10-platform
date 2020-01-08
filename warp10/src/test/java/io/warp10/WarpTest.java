@@ -15,7 +15,7 @@
 
 package io.warp10;
 
-import io.warp10.arrow.ArrowExtension;
+//import io.warp10.arrow.ArrowExtension;
 import io.warp10.script.WarpScriptLib;
 import io.warp10.script.ext.inventory.InventoryWarpScriptExtension;
 import org.junit.Test;
@@ -25,17 +25,28 @@ import java.io.File;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class WarpTest {
 
-  //change with your absolute path.
-  private static String CONF = "/home/jc/Projects/2019/warp10-platform/conf-standalone.conf";
+  private static String HOME = "/home/jenx/Projects/randomboolean/warp10-platform/warp10/archive/warp10-2.3.0-68-g8e088fac/";
 
   //@Ignore
   @Test
   public void testWarp() throws Exception {
+
+    //
+    // Config
+    //
+
+    String default_conf_folder = HOME + "etc/conf.d";
+    List<String> conf = Files.walk(Paths.get(default_conf_folder)).map(x -> x.toString()).filter(f -> f.endsWith(".conf")).collect(Collectors.toList());
+
+    // % add additional conf here%
 
     //
     // Loging
@@ -44,15 +55,13 @@ public class WarpTest {
     //System.setProperty("log4j.configuration", new File("/home/jc/Projects/2019/warp10-platform/etc/log4j.properties").toURI().toString());
     //System.setProperty("sensision.server.port", "0");
 
-    System.out.println("conf file:");
-    System.out.println(CONF);
 
     //
     // Load jars that can't be simply added as dependencies
     //
 
     List<File> jars = new ArrayList<File>();
-    jars.add(new File("/home/jc/Projects/2019/warp10-ext-forecast/build/libs/Warp10-Forecast-0.0.192.jar"));
+    //jars.add(new File("/home/jc/Projects/2019/warp10-ext-forecast/build/libs/Warp10-Forecast-0.0.192.jar"));
 
     URLClassLoader cl = (URLClassLoader) WarpScriptLib.class.getClassLoader();
     Method m = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
@@ -72,7 +81,7 @@ public class WarpTest {
       @Override
       public void run() {
         try {
-          Warp.main(new String[]{CONF});
+          Warp.main(conf.toArray(new String[conf.size()]));
         } catch (Exception e) {
           throw new RuntimeException(e);
         }
@@ -84,7 +93,7 @@ public class WarpTest {
     // Extensions
     //
 
-    WarpScriptLib.register(new ArrowExtension());
+    //WarpScriptLib.register(new ArrowExtension());
     WarpScriptLib.register(new InventoryWarpScriptExtension());
 
     //
