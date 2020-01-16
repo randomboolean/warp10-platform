@@ -18,6 +18,7 @@ package io.warp10;
 //import io.warp10.arrow.ArrowExtension;
 import io.warp10.script.WarpScriptLib;
 import io.warp10.script.ext.inventory.InventoryWarpScriptExtension;
+import org.junit.Ignore;
 import org.junit.Test;
 import io.warp10.standalone.Warp;
 
@@ -35,7 +36,7 @@ public class WarpTest {
 
   private static String HOME = "/home/jenx/Projects/randomboolean/warp10-platform/warp10/archive/warp10-2.3.0-68-g8e088fac/";
 
-  //@Ignore
+  @Ignore
   @Test
   public void testWarp() throws Exception {
 
