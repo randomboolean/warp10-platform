@@ -34,9 +34,9 @@ import java.util.stream.Collectors;
 
 public class WarpTest {
 
-  private static String HOME = "/home/jenx/Projects/randomboolean/warp10-platform/warp10/archive/warp10-2.3.0-68-g8e088fac/";
+  private static String HOME = "/home/jenx/Projects/randomboolean/warp10-platform/warp10/archive/warp10-2.3.0-131-g41571d6c/";
 
-  @Ignore
+  //@Ignore
   @Test
   public void testWarp() throws Exception {
 
