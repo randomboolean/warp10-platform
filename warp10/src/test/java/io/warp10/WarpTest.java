@@ -18,6 +18,8 @@ package io.warp10;
 //import io.warp10.arrow.ArrowExtension;
 import io.warp10.script.WarpScriptLib;
 import io.warp10.script.ext.inventory.InventoryWarpScriptExtension;
+import io.warp10.warp.sdk.WarpScriptExtension;
+import ml.forecast.ForecastExtension;
 import org.junit.Ignore;
 import org.junit.Test;
 import io.warp10.standalone.Warp;
@@ -34,7 +36,7 @@ import java.util.stream.Collectors;
 
 public class WarpTest {
 
-  private static String HOME = "/home/jenx/Projects/randomboolean/warp10-platform/warp10/archive/warp10-2.3.0-131-g41571d6c/";
+  private static String HOME = "/home/jenx/Softwares/warp10-local/";
 
   //@Ignore
   @Test
@@ -53,7 +55,7 @@ public class WarpTest {
     // Loging
     //
 
-    //System.setProperty("log4j.configuration", new File("/home/jc/Projects/2019/warp10-platform/etc/log4j.properties").toURI().toString());
+    //System.setProperty("log4j.configuration", new File(HOME + "etc/log4j.properties").toURI().toString());
     //System.setProperty("sensision.server.port", "0");
 
 
@@ -91,11 +93,17 @@ public class WarpTest {
     t.start();
 
     //
-    // Extensions
+    // Built in extensions
+    //
+
+    WarpScriptLib.register(new InventoryWarpScriptExtension());
+
+    //
+    // Extensions (add them as separate modules and put main as dep, then put these ext as dep of test)
     //
 
     //WarpScriptLib.register(new ArrowExtension());
-    WarpScriptLib.register(new InventoryWarpScriptExtension());
+    //WarpScriptLib.register(new ForecastExtension());
 
     //
     // Let Warp10 run
