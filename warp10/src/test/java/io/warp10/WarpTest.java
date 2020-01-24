@@ -19,7 +19,7 @@ package io.warp10;
 import io.warp10.script.WarpScriptLib;
 import io.warp10.script.ext.inventory.InventoryWarpScriptExtension;
 import io.warp10.warp.sdk.WarpScriptExtension;
-import ml.forecast.ForecastExtension;
+//import ml.forecast.ForecastExtension;
 import org.junit.Ignore;
 import org.junit.Test;
 import io.warp10.standalone.Warp;
