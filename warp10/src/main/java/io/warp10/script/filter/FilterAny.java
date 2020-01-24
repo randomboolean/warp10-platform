@@ -152,7 +152,7 @@ public class FilterAny extends NamedWarpScriptFunction implements WarpScriptFilt
         // A ^ false = A
         // A ^ true = ~A
         //
-
+        
         if (found ^ this.complementSet) {
           retained.add(serie);
         }
