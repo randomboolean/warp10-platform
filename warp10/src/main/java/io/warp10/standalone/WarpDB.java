@@ -172,6 +172,7 @@ public class WarpDB extends Thread implements DB {
       
       try {
         if (!nativedisabled) {
+          options.createIfMissing(true);
           db = JniDBFactory.factory.open(new File(home), options);
         } else {
           throw new UnsatisfiedLinkError("Native LevelDB implementation disabled.");

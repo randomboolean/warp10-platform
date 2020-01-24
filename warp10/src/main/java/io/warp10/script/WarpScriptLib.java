@@ -28,7 +28,6 @@ import java.util.Properties;
 import java.util.Set;
 
 import io.warp10.script.aggregator.CompareTo;
-import io.warp10.script.filter.FilterAny;
 import io.warp10.script.mapper.MapperCompareTo;
 import org.apache.commons.lang3.JavaVersion;
 import org.apache.commons.lang3.SystemUtils;
@@ -113,6 +112,7 @@ import io.warp10.script.filter.FilterLastGT;
 import io.warp10.script.filter.FilterLastLE;
 import io.warp10.script.filter.FilterLastLT;
 import io.warp10.script.filter.FilterLastNE;
+import io.warp10.script.filter.FilterAny;
 import io.warp10.script.filter.FilterBySize;
 import io.warp10.script.filter.LatencyFilter;
 import io.warp10.script.functions.*;
@@ -859,6 +859,7 @@ public class WarpScriptLib {
   public static final String NOTAFTER = "NOTAFTER";
   public static final String TSELEMENTS = "TSELEMENTS";
   public static final String ADDDAYS = "ADDDAYS";
+  public static final String ADDDURATION = "ADDDURATION";
   public static final String ADDMONTHS = "ADDMONTHS";
   public static final String ADDYEARS = "ADDYEARS";
   public static final String QUANTIZE = "QUANTIZE";
@@ -1735,6 +1736,7 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new TSELEMENTS(TOTSELEMENTS));
     addNamedWarpScriptFunction(new FROMTSELEMENTS(TSELEMENTSTO));
     addNamedWarpScriptFunction(new ADDDAYS(ADDDAYS));
+    addNamedWarpScriptFunction(new ADDDURATION(ADDDURATION));
     addNamedWarpScriptFunction(new ADDMONTHS(ADDMONTHS));
     addNamedWarpScriptFunction(new ADDYEARS(ADDYEARS));
     

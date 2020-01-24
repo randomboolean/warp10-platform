@@ -120,7 +120,16 @@ dependencies {
         exclude module: 'jmxtools'
         exclude module: 'jmxri'
     }
+
     testCompile 'junit:junit:4.6'
+  
+    //
+    // Test platform
+    //
+
+    //testCompile 'io.warp10:warp10-plugin-py4j:ba28141'
+    //testCompile 'io.warp10:warp10-ext-arrow:0.0.3'
+    testCompile 'javax.annotation:javax.annotation-api:+'
 }
 
 jar {

@@ -151,6 +151,8 @@ public class FilterAny extends NamedWarpScriptFunction implements WarpScriptFilt
         // In case of wanting the complementSet, the logic is reversed.
         // A ^ false = A
         // A ^ true = ~A
+        //
+
         if (found ^ this.complementSet) {
           retained.add(serie);
         }

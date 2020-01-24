@@ -18,6 +18,10 @@ package io.warp10;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
+import java.security.CodeSource;
+import java.security.ProtectionDomain;
+import java.security.cert.Certificate;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.jar.JarFile;
@@ -134,7 +138,8 @@ public class WarpClassLoader extends ClassLoader {
           return knownClass;
         }
 
-        c = defineClass(name, data, 0, data.length);
+        c = defineClass(name, data, 0, data.length, new ProtectionDomain(new CodeSource(new URL(this.jarpath), (Certificate[]) null), null));
+
         //
         // Store the class in the cache
         //      
