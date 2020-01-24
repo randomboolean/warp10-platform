@@ -43,7 +43,7 @@ public class FilterAny extends NamedWarpScriptFunction implements WarpScriptFilt
 
   private final TYPE type;
   private final Object threshold;
-  private final boolean complementSet;
+  private final boolean complementSet; // if true, the filter does the opposite (so filter.all.* can be built using the same builder)
   private final Comparator comparator;
 
   public static class Builder extends NamedWarpScriptFunction implements WarpScriptStackFunction {
@@ -137,13 +137,14 @@ public class FilterAny extends NamedWarpScriptFunction implements WarpScriptFilt
               found = verify(((String) threshold).compareTo(val.toString()));
               break;
             case BOOLEAN:
-              if (!(((Boolean) threshold).equals(val) ^ this.comparator == Comparator.EQ)) {
-                found = true;
-              }
+              found = ((Boolean) threshold).equals(val) ^ this.comparator == Comparator.NEQ
               break;
           }
         }
 
+        // In case of wanting the complementSet, the logic is reversed.
+        // A ^ false = A
+        // A ^ true = ~A
         if (found ^ this.complementSet) {
           retained.add(serie);
         }
