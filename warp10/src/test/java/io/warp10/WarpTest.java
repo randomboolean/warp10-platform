@@ -65,6 +65,7 @@ public class WarpTest {
 
     List<File> jars = new ArrayList<File>();
     //jars.add(new File("/home/jc/Projects/2019/warp10-ext-forecast/build/libs/Warp10-Forecast-0.0.192.jar"));
+    jars.add(new File(HOME + "lib/io.warp10-warp10-plugin-zeppelin-1.0.2-uberjar.jar"));
 
     URLClassLoader cl = (URLClassLoader) WarpScriptLib.class.getClassLoader();
     Method m = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
