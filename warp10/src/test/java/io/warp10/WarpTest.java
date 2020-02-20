@@ -15,16 +15,15 @@
 
 package io.warp10;
 
-//import io.warp10.arrow.ArrowExtension;
 import io.warp10.script.WarpScriptLib;
 import io.warp10.script.ext.inventory.InventoryWarpScriptExtension;
-import io.warp10.warp.sdk.WarpScriptExtension;
-//import ml.forecast.ForecastExtension;
+import io.warp10.script.ext.token.TokenWarpScriptExtension;
 import org.junit.Ignore;
 import org.junit.Test;
 import io.warp10.standalone.Warp;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -49,7 +48,15 @@ public class WarpTest {
     String default_conf_folder = HOME + "etc/conf.d";
     List<String> conf = Files.walk(Paths.get(default_conf_folder)).map(x -> x.toString()).filter(f -> f.endsWith(".conf")).collect(Collectors.toList());
 
-    // % add additional conf here%
+    //
+    // Additional or overwriting configurations
+    //
+
+    String extraConfPath = HOME + "etc/conf.d/99-extra.conf";
+    FileWriter fr = new FileWriter(new File(extraConfPath));
+    fr.write("warp.timeunits = ns");
+    fr.close();
+    conf.add(extraConfPath);
 
     //
     // Loging
@@ -58,14 +65,14 @@ public class WarpTest {
     //System.setProperty("log4j.configuration", new File(HOME + "etc/log4j.properties").toURI().toString());
     //System.setProperty("sensision.server.port", "0");
 
-
     //
-    // Load jars that can't be simply added as dependencies
+    // Load jars from lib folder (plugins and extensions)
     //
 
     List<File> jars = new ArrayList<File>();
-    //jars.add(new File("/home/jc/Projects/2019/warp10-ext-forecast/build/libs/Warp10-Forecast-0.0.192.jar"));
-    jars.add(new File(HOME + "lib/io.warp10-warp10-plugin-zeppelin-1.0.2-uberjar.jar"));
+    for (File f: new File(HOME + "lib").listFiles()) {
+      jars.add(f);
+    }
 
     URLClassLoader cl = (URLClassLoader) WarpScriptLib.class.getClassLoader();
     Method m = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
@@ -98,9 +105,10 @@ public class WarpTest {
     //
 
     WarpScriptLib.register(new InventoryWarpScriptExtension());
+    //WarpScriptLib.register(new TokenWarpScriptExtension(Warp.getKeyStore())); null exception, must be loaded with config file
 
     //
-    // Extensions (add them as separate modules and put main as dep, then put these ext as dep of test)
+    // Other extensions (add them as separate modules and put main as dep, then put these ext as dep of test)
     //
 
     //WarpScriptLib.register(new ArrowExtension());
