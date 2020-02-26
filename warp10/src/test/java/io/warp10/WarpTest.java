@@ -54,7 +54,7 @@ public class WarpTest {
 
     String extraConfPath = HOME + "etc/conf.d/99-extra.conf";
     FileWriter fr = new FileWriter(new File(extraConfPath));
-    fr.write("warp.timeunits = ns");
+    fr.write("warp.timeunits = us");
     fr.close();
     conf.add(extraConfPath);
 
