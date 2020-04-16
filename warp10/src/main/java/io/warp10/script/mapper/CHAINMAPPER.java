@@ -114,7 +114,6 @@ public class CHAINMAPPER extends FormattedWarpScriptFunction {
                 singleRes = (Object[]) res;
               }
               
-              tmp[0] = singleRes[0];
               tmp[3] = new Long[]{(long) singleRes[0]};
               tmp[4] = new Long[]{(long) singleRes[1]};
               tmp[5] = new Long[]{(long) singleRes[2]};
