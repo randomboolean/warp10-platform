@@ -27,8 +27,6 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 
-import org.apache.commons.lang3.JavaVersion;
-import org.apache.commons.lang3.SystemUtils;
 import org.bouncycastle.crypto.digests.MD5Digest;
 import org.bouncycastle.crypto.digests.SHA1Digest;
 import org.bouncycastle.crypto.digests.SHA256Digest;
@@ -256,6 +254,7 @@ import io.warp10.script.processing.image.PimageMode;
 import io.warp10.script.processing.image.PnoTint;
 import io.warp10.script.processing.image.Ppixels;
 import io.warp10.script.processing.image.Pset;
+import io.warp10.script.processing.image.Psize;
 import io.warp10.script.processing.image.Ptint;
 import io.warp10.script.processing.image.PtoImage;
 import io.warp10.script.processing.image.PupdatePixels;
@@ -480,6 +479,7 @@ public class WarpScriptLib {
   public static final String TIMED = "TIMED";
   public static final String CHRONOSTATS = "CHRONOSTATS";
   public static final String UNLIST = "UNLIST";
+  public static final String UNSET = "UNSET";
   public static final String UNION = "UNION";
   public static final String INTERSECTION = "INTERSECTION";
   public static final String DIFFERENCE = "DIFFERENCE";
@@ -787,6 +787,11 @@ public class WarpScriptLib {
   public static final String MSORT = "MSORT";
   public static final String GROUPBY = "GROUPBY";
   public static final String FILTERBY = "FILTERBY";
+  public static final String ACCEL_NOCACHE = "ACCEL.NOCACHE";
+  public static final String ACCEL_CACHE = "ACCEL.CACHE";
+  public static final String ACCEL_NOPERSIST = "ACCEL.NOPERSIST";
+  public static final String ACCEL_PERSIST = "ACCEL.PERSIST";
+  public static final String ACCEL_REPORT = "ACCEL.REPORT";
   public static final String UPDATE = "UPDATE";
   public static final String META = "META";
   public static final String METADIFF = "METADIFF";
@@ -829,6 +834,7 @@ public class WarpScriptLib {
   public static final String UNWRAPEMPTY = "UNWRAPEMPTY";
   public static final String UNWRAPSIZE = "UNWRAPSIZE";
   public static final String WRAPMV = "WRAPMV";
+  public static final String WRAPMVNOCOMP = "WRAPMV!";
   public static final String MVTICKSPLIT = "MVTICKSPLIT";
   public static final String MVINDEXSPLIT = "MVINDEXSPLIT";
   public static final String MVVALUES = "MVVALUES";
@@ -1020,6 +1026,7 @@ public class WarpScriptLib {
   public static final String PSATURATION = "Psaturation";
   public static final String PDECODE = "Pdecode";
   public static final String PIMAGE = "Pimage";
+  public static final String PSIZE = "Psize";
   public static final String PIMAGEMODE = "PimageMode";
   public static final String PTINT = "Ptint";
   public static final String PNOTINT = "PnoTint";
@@ -1098,6 +1105,7 @@ public class WarpScriptLib {
   public static final String HHCODETO = "HHCODE->";
   public static final String GTSHHCODETO = "GTSHHCODE->";
   public static final String GEOHASHTO = "GEOHASH->";
+  public static final String GEOSPLIT = "GEOSPLIT";
   public static final String ZTO = "Z->";
   public static final String MATTO = "MAT->";
   public static final String VECTO = "VEC->";
@@ -1201,6 +1209,7 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new TOLIST(TOLIST));
     addNamedWarpScriptFunction(new LISTTO(LISTTO));
     addNamedWarpScriptFunction(new UNLIST(UNLIST));
+    addNamedWarpScriptFunction(new UNSET(UNSET));
     addNamedWarpScriptFunction(new TOSET(TO_SET));
     addNamedWarpScriptFunction(new SETTO(SETTO));
     addNamedWarpScriptFunction(new TOVECTOR(TO_VECTOR));
@@ -1651,6 +1660,11 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new MSORT(MSORT));
     addNamedWarpScriptFunction(new GROUPBY(GROUPBY));
     addNamedWarpScriptFunction(new FILTERBY(FILTERBY));
+    addNamedWarpScriptFunction(new ACCELCACHE(ACCEL_CACHE, false));
+    addNamedWarpScriptFunction(new ACCELCACHE(ACCEL_NOCACHE, true));
+    addNamedWarpScriptFunction(new ACCELPERSIST(ACCEL_PERSIST, false));
+    addNamedWarpScriptFunction(new ACCELPERSIST(ACCEL_NOPERSIST, true));
+    addNamedWarpScriptFunction(new ACCELREPORT(ACCEL_REPORT));
     addNamedWarpScriptFunction(new UPDATE(UPDATE));
     addNamedWarpScriptFunction(new META(META));
     addNamedWarpScriptFunction(new META(METADIFF, true));    
@@ -1662,13 +1676,8 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new REPLACE(REPLACEALL, true));
     addNamedWarpScriptFunction(new REOPTALT(REOPTALT));
     
-    if (SystemUtils.isJavaVersionAtLeast(JavaVersion.JAVA_1_8)) {
-      addNamedWarpScriptFunction(new TEMPLATE(TEMPLATE));
-      addNamedWarpScriptFunction(new TOTIMESTAMP(TOTIMESTAMP));
-    } else {
-      addNamedWarpScriptFunction(new FAIL(TEMPLATE, "Requires JAVA 1.8+"));
-      addNamedWarpScriptFunction(new FAIL(TOTIMESTAMP, "Requires JAVA 1.8+"));
-    }
+    addNamedWarpScriptFunction(new TEMPLATE(TEMPLATE));
+    addNamedWarpScriptFunction(new TOTIMESTAMP(TOTIMESTAMP));
 
     addNamedWarpScriptFunction(new STRINGFORMAT(STRINGFORMAT));
 
@@ -1704,6 +1713,7 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new UNWRAPSIZE(UNWRAPSIZE));
     addNamedWarpScriptFunction(new UNWRAPENCODER(UNWRAPENCODER));
     addNamedWarpScriptFunction(new WRAP(WRAPMV, true, true, true, true));
+    addNamedWarpScriptFunction(new WRAP(WRAPMVNOCOMP, true, false, true, true));
     addNamedWarpScriptFunction(new TOMVSTRING(TOMVSTRING));
     addNamedWarpScriptFunction(new MVSPLIT(MVTICKSPLIT, true));
     addNamedWarpScriptFunction(new MVSPLIT(MVINDEXSPLIT, false));
@@ -1956,6 +1966,7 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new GEOHASHTO(GEOHASHTO));
     addNamedWarpScriptFunction(new GEOCOVER(GEO_COVER, false));
     addNamedWarpScriptFunction(new GEOCOVER(GEO_COVER_RL, true));
+    addNamedWarpScriptFunction(new GEOSPLIT(GEOSPLIT));
     
     //
     // Counters
@@ -2163,6 +2174,7 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new Pdecode(PDECODE));
     addNamedWarpScriptFunction(new Pimage(PIMAGE));
     addNamedWarpScriptFunction(new PimageMode(PIMAGEMODE));
+    addNamedWarpScriptFunction(new Psize(PSIZE));
     addNamedWarpScriptFunction(new Ptint(PTINT));
     addNamedWarpScriptFunction(new PnoTint(PNOTINT));
     addNamedWarpScriptFunction(new Ppixels(PPIXELS));

@@ -96,6 +96,7 @@ import io.warp10.quasar.token.thrift.data.ReadToken;
 import io.warp10.script.WarpScriptException;
 import io.warp10.script.functions.FETCH;
 import io.warp10.sensision.Sensision;
+import io.warp10.standalone.StandaloneAcceleratedStoreClient;
 
 public class EgressFetchHandler extends AbstractHandler {
 
@@ -179,8 +180,8 @@ public class EgressFetchHandler extends AbstractHandler {
       long count = -1;
       long skip = 0;
       double sample = 1.0D;
-      int preBoundary = 0;
-      int postBoundary = 0;
+      long preBoundary = 0;
+      long postBoundary = 0;
 
       String startParam = null;
       String stopParam = null;
@@ -214,6 +215,9 @@ public class EgressFetchHandler extends AbstractHandler {
         postBoundaryParam = req.getParameter(Constants.HTTP_PARAM_POSTBOUNDARY);
       }
           
+      boolean nocache = null != req.getParameter(StandaloneAcceleratedStoreClient.NOCACHE);
+      boolean nopersist = null != req.getParameter(StandaloneAcceleratedStoreClient.NOPERSIST);
+      
       String maxDecoderLenParam = req.getParameter(Constants.HTTP_PARAM_MAXSIZE);
       int maxDecoderLen = null != maxDecoderLenParam ? Integer.parseInt(maxDecoderLenParam) : Constants.DEFAULT_PACKED_MAXSIZE;
       
@@ -242,13 +246,13 @@ public class EgressFetchHandler extends AbstractHandler {
       //
 
       // negative timespan is count
-      if (null != timespanParam && null != countParam) {
-        resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Cannot specify both '" + Constants.HTTP_PARAM_COUNT + "' and negative '" + Constants.HTTP_PARAM_TIMESPAN + "'.");
-        return;
-      }
       try {
         long numericTimespan = Long.parseLong(timespanParam);
         if (numericTimespan < 0) {
+          if (null != countParam) {
+            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Cannot specify both '" + Constants.HTTP_PARAM_COUNT + "' and negative '" + Constants.HTTP_PARAM_TIMESPAN + "'.");
+            return;
+          }
           timespanParam = null;
           countParam = Long.toString(-numericTimespan);
         }
@@ -294,11 +298,11 @@ public class EgressFetchHandler extends AbstractHandler {
       }
 
       if (null != preBoundaryParam) {
-        preBoundary = Integer.parseInt(preBoundaryParam);
+        preBoundary = Long.parseLong(preBoundaryParam);
       }
 
       if (null != postBoundaryParam) {
-        postBoundary = Integer.parseInt(postBoundaryParam);
+        postBoundary = Long.parseLong(postBoundaryParam);
       }
       
       String selector = splitFetch ? null : req.getParameter(Constants.HTTP_PARAM_SELECTOR);
@@ -730,6 +734,18 @@ public class EgressFetchHandler extends AbstractHandler {
       AtomicLong lastCount = new AtomicLong(0L);
       
       boolean expose = rtoken.getAttributesSize() > 0 && rtoken.getAttributes().containsKey(Constants.TOKEN_ATTR_EXPOSE);
+      
+      if (nocache) {
+        StandaloneAcceleratedStoreClient.nocache();
+      } else {
+        StandaloneAcceleratedStoreClient.cache();        
+      }
+      
+      if (nopersist) {
+        StandaloneAcceleratedStoreClient.nopersist();
+      } else {
+        StandaloneAcceleratedStoreClient.persist();        
+      }
       
       for (Iterator<Metadata> itermeta: iterators) {
         while(itermeta.hasNext()) {

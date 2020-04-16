@@ -32,8 +32,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.GZIPInputStream;
 
 import org.apache.commons.io.output.ByteArrayOutputStream;
-import org.apache.commons.lang3.JavaVersion;
-import org.apache.commons.lang3.SystemUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.thrift.TDeserializer;
 import org.apache.thrift.TException;
@@ -54,6 +52,7 @@ import io.warp10.continuum.gts.GTSDecoder;
 import io.warp10.continuum.gts.GTSHelper;
 import io.warp10.continuum.gts.GeoTimeSerie;
 import io.warp10.continuum.gts.GeoTimeSerie.TYPE;
+import io.warp10.continuum.gts.MetadataSelectorMatcher;
 import io.warp10.continuum.sensision.SensisionConstants;
 import io.warp10.continuum.store.Constants;
 import io.warp10.continuum.store.DirectoryClient;
@@ -73,6 +72,8 @@ import io.warp10.script.WarpScriptException;
 import io.warp10.script.WarpScriptStack;
 import io.warp10.script.WarpScriptStackFunction;
 import io.warp10.sensision.Sensision;
+import io.warp10.standalone.StandaloneAcceleratedStoreClient;
+
 import org.joda.time.format.ISOPeriodFormat;
 
 /**
@@ -211,9 +212,9 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
     
     GeoTimeSerie base = null;
     GeoTimeSerie[] bases = null;
-    String typelabel = (String) params.get(PARAM_TYPEATTR);
+    String typeattr = (String) params.get(PARAM_TYPEATTR);
 
-    if (null != typelabel) {
+    if (null != typeattr) {
       bases = new GeoTimeSerie[5];
     }
     
@@ -235,32 +236,88 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
       iter = metaset.getMetadatas().iterator();
     } else if (params.containsKey(PARAM_GTS)) {
       List<Metadata> metas = (List<Metadata>) params.get(PARAM_GTS);
-            
+      
+      Map<String,String> tokenSelectors = Tokens.labelSelectorsFromReadToken(rtoken);
+      
+      boolean singleApp = tokenSelectors.containsKey(Constants.APPLICATION_LABEL) && '=' == tokenSelectors.get(Constants.APPLICATION_LABEL).charAt(0);
+      boolean singleOwner = tokenSelectors.containsKey(Constants.OWNER_LABEL) && '=' == tokenSelectors.get(Constants.OWNER_LABEL).charAt(0);
+      boolean singleProducer = tokenSelectors.containsKey(Constants.PRODUCER_LABEL) && '=' == tokenSelectors.get(Constants.PRODUCER_LABEL).charAt(0); 
+
+      String application = singleApp ? tokenSelectors.get(Constants.APPLICATION_LABEL).substring(1) : null;
+      String owner = singleOwner ? tokenSelectors.get(Constants.OWNER_LABEL).substring(1) : null;
+      String producer = singleProducer ? tokenSelectors.get(Constants.PRODUCER_LABEL).substring(1) : null;
+      
+      Metadata tmeta = new Metadata();
+      tmeta.setName("");
+      tmeta.setLabels(tokenSelectors);
+      
+      // Build a selector matching all classes
+      String tselector = "~.*" + GTSHelper.buildSelector(tmeta, true);
+      MetadataSelectorMatcher matcher = new MetadataSelectorMatcher(tselector);
+      
+      //
+      // Build a selector
       for (Metadata m: metas) {
         if (null == m.getLabels()) {
           m.setLabels(new HashMap<String,String>());
         }
-        m.getLabels().remove(Constants.PRODUCER_LABEL);
-        m.getLabels().remove(Constants.OWNER_LABEL);
-        m.getLabels().remove(Constants.APPLICATION_LABEL);
-        m.getLabels().putAll(Tokens.labelSelectorsFromReadToken(rtoken));
-                
-        if (m.getLabels().containsKey(Constants.PRODUCER_LABEL) && '=' == m.getLabels().get(Constants.PRODUCER_LABEL).charAt(0)) {
-          m.getLabels().put(Constants.PRODUCER_LABEL, m.getLabels().get(Constants.PRODUCER_LABEL).substring(1));
-        } else if (m.getLabels().containsKey(Constants.PRODUCER_LABEL)) {
-          throw new WarpScriptException(getName() + " provided token is incompatible with '" + PARAM_GTS + "' parameter, expecting a single producer.");
+        
+        //
+        // If the Metadata have producer/owner/app labels, check if 'matcher' would select them
+        //
+        
+        boolean matches = false;
+        
+        if (m.getLabels().containsKey(Constants.PRODUCER_LABEL)
+            && m.getLabels().containsKey(Constants.OWNER_LABEL)
+            && m.getLabels().containsKey(Constants.APPLICATION_LABEL)) {
+          matches = matcher.matches(m);
         }
         
-        if (m.getLabels().containsKey(Constants.OWNER_LABEL) && '=' == m.getLabels().get(Constants.OWNER_LABEL).charAt(0)) {
-          m.getLabels().put(Constants.OWNER_LABEL, m.getLabels().get(Constants.OWNER_LABEL).substring(1));
-        } else {
-          throw new WarpScriptException(getName() + " provided token is incompatible with '" + PARAM_GTS + "' parameter, expecting a single owner.");
-        }
+        //
+        // If the metadata would not get selected by the provided token
+        // force the producer/owner/app to be that of the token
+        //
         
-        if (m.getLabels().containsKey(Constants.APPLICATION_LABEL) && '=' == m.getLabels().get(Constants.APPLICATION_LABEL).charAt(0)) {
-          m.getLabels().put(Constants.APPLICATION_LABEL, m.getLabels().get(Constants.APPLICATION_LABEL).substring(1));
-        } else {
-          throw new WarpScriptException(getName() + " provided token is incompatible with '" + PARAM_GTS + "' parameter, expecting a single application.");
+        if (!matches) {
+          //
+          // We will now set producer/owner/application
+          //
+              
+          //
+          // If the token doesn't contain a single app we abort the selection as we cannot
+          // choose an app which would be within the reach of the token
+          //
+          
+          if (singleApp) {
+            m.getLabels().put(Constants.APPLICATION_LABEL, application);
+          } else {
+            throw new WarpScriptException(getName() + " provided token is incompatible with '" + PARAM_GTS + "' parameter, expecting a single application.");
+          }
+
+          if (singleProducer && singleOwner) {
+            //
+            // If the token has a single producer and single owner, use them for the GTS
+            //
+            m.getLabels().put(Constants.PRODUCER_LABEL, producer);
+            m.getLabels().put(Constants.OWNER_LABEL, owner);            
+          } else if (singleProducer && !tokenSelectors.containsKey(Constants.OWNER_LABEL)) {
+            //
+            // If the token has a single producer but no owner, use the producer as the owner, this would
+            // lead to a narrower scope than what the token would actually select so it is fine.
+            //
+            m.getLabels().put(Constants.PRODUCER_LABEL, producer);
+            m.getLabels().put(Constants.OWNER_LABEL, producer);                        
+          } else if (singleOwner && !tokenSelectors.containsKey(Constants.PRODUCER_LABEL)) {
+            //
+            // If the token has a single owner but no producer, use the owner as the producer, again this would
+            // lead to a narrower scope than what the token can actually access so it is fine too.
+            //
+            m.getLabels().put(Constants.OWNER_LABEL, owner);            
+            m.getLabels().put(Constants.PRODUCER_LABEL, owner);            
+          } else {
+            throw new WarpScriptException(getName() + " provided token is incompatible with '" + PARAM_GTS + "' parameter, expecting a single producer and/or single owner.");            
+          }
         }
         
         // Recompute IDs
@@ -327,14 +384,14 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
     Metadata lastMetadata = null;
     long lastCount = 0L;
     
-    int preBoundary = 0;
-    int postBoundary = 0;
+    long preBoundary = 0;
+    long postBoundary = 0;
     
     if (params.containsKey(PARAM_BOUNDARY_PRE)) {
-      preBoundary = (int) params.get(PARAM_BOUNDARY_PRE);
+      preBoundary = (long) params.get(PARAM_BOUNDARY_PRE);
     }
     if (params.containsKey(PARAM_BOUNDARY_POST)) {
-      postBoundary = (int) params.get(PARAM_BOUNDARY_POST);
+      postBoundary = (long) params.get(PARAM_BOUNDARY_POST);
     }
     
     try {
@@ -345,7 +402,9 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
         if (gtscount.incrementAndGet() > gtsLimit) {
           throw new WarpScriptException(getName() + " exceeded limit of " + gtsLimit + " Geo Time Series, current count is " + gtscount);
         }
-        
+
+        stack.handleSignal();
+
         if (metadatas.size() < EgressFetchHandler.FETCH_BATCHSIZE && iter.hasNext()) {
           continue;
         }
@@ -406,16 +465,28 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
         TYPE lastType = TYPE.UNDEFINED;
         
         long end = (long) params.get(PARAM_END);
+                
+        boolean nocache = Boolean.TRUE.equals(stack.getAttribute(StandaloneAcceleratedStoreClient.ATTR_NOCACHE));
+        boolean nopersist = Boolean.TRUE.equals(stack.getAttribute(StandaloneAcceleratedStoreClient.ATTR_NOPERSIST));
+
+        if (nocache) {
+          StandaloneAcceleratedStoreClient.nocache();
+        } else {
+          StandaloneAcceleratedStoreClient.cache();          
+        }
         
-        int boundary = 0;
+        if (nopersist) {
+          StandaloneAcceleratedStoreClient.nopersist();
+        } else {
+          StandaloneAcceleratedStoreClient.persist();
+        }
+        
+        // Flag indicating the FETCH is a count only, no pre/post boundaries
+        boolean countOnly = count >= 0 && 0 == preBoundary & 0 == postBoundary;
         
         try (GTSDecoderIterator gtsiter = gtsStore.fetch(rtoken, metadatas, end, then, count, skip, sample, writeTimestamp, preBoundary, postBoundary)) {
           while(gtsiter.hasNext()) {           
             GTSDecoder decoder = gtsiter.next();
-
-            if (null == base) {
-              boundary = 0;
-            }
             
             boolean identical = true;
 
@@ -432,7 +503,7 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
             // If we should ventilate per type, do so now
             //
             
-            if (null != typelabel) {
+            if (null != typeattr) {
               
               java.util.UUID uuid = null;
               
@@ -441,7 +512,6 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
               }
 
               long dpcount = 0;
-              long postB = 0;
               
               Metadata decoderMeta = new Metadata(decoder.getMetadata());
               // Remove producer/owner labels
@@ -450,27 +520,15 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
                 decoderMeta.getLabels().remove(Constants.OWNER_LABEL);
               }
               
-              while(decoder.next()) {
-                
-                // If we've read enough data, exit
-                if (count >= 0 && lastCount + dpcount >= count) {
-                  break;
-                }
-                
+              while(decoder.next()) {                
                 long ts = decoder.getTimestamp();
                 long location = decoder.getLocation();
                 long elevation = decoder.getElevation();
                 Object value = decoder.getBinaryValue();
 
-                // When fetching per count, only increase 'count' when
-                // timestamp is before the end timestamp so we do not
-                // increase dpcount for the post boundary
-                if (-1L == count || ts <= end) {
-                  dpcount++;
-                } else if (ts > end) {
-                  postB++;
-                }
-
+                
+                dpcount++;
+                
                 int gtsidx = 0;
                 String typename = "DOUBLE";
                 
@@ -498,22 +556,38 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
                   base.setMetadata(decoderMeta);
                   
                   // Force type attribute
-                  base.getMetadata().putToAttributes(typelabel, typename);
+                  base.getMetadata().putToAttributes(typeattr, typename);
                   if (null != uuid) {
                     base.getMetadata().putToAttributes(Constants.UUID_ATTRIBUTE, uuid.toString());
                   }
                 }
-                
-                GTSHelper.setValue(base, ts, location, elevation, value, false);                
+
+                //
+                // When using HBase, fetch requests which do not have boundaries may be served
+                // using a custom filter. This filter may return more data for a GTS than the requested
+                // count if the GTS spans multiple regions because the filtering is performed on the Region Servers
+                // and in this specific case the request will be forwarded to all RS serving regions for a given GTS.
+                // It is therefore necessary to keep track of how many datapoints were already fetched and
+                // shrink the GTS so we do not return too many.
+                //
+
+                if (countOnly && lastCount + dpcount >= count) {
+                  // We are done, exit
+                  break;
+                }
+
+                GTSHelper.setValue(base, ts, location, elevation, value, false);
               }
               
-              if (fetched.addAndGet(count + postB) > fetchLimit) {
+              if (fetched.addAndGet(dpcount) > fetchLimit) {
                 Map<String,String> sensisionLabels = new HashMap<String, String>();
                 sensisionLabels.put(SensisionConstants.SENSISION_LABEL_CONSUMERID, Tokens.getUUID(rtoken.getBilledId()));
                 Sensision.update(SensisionConstants.SENSISION_CLASS_WARPSCRIPT_FETCHCOUNT_EXCEEDED, sensisionLabels, 1);
                 throw new WarpScriptException(getName() + " exceeded limit of " + fetchLimit + " datapoints, current count is " + fetched.get());
               }
 
+              stack.handleSignal();
+              
               lastCount += dpcount;
               
               continue;
@@ -534,27 +608,20 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
               }
               lastType = gts.getType();
             }
-        
-            if (null == base && count >= 0 && postBoundary > 0) {
-              // This is the first GTS, so we need to count the size of the post boundary
-              // so we get a correct estimate of the number of datapoints we fetched
-              for (int i = 0; i < GTSHelper.nvalues(gts); i++) {
-                if (GTSHelper.tickAtIndex(gts, i) > end) {
-                  boundary++;
-                } else {
-                  // We can exit as soon as we find a timestamp <= end
-                  break;                  
-                }
-              }
-            }
+
+            //
+            // When using HBase, fetch requests which do not have boundaries may be served
+            // using a custom filter. This filter may return more data for a GTS than the requested
+            // count if the GTS spans multiple regions because the filtering is performed on the Region Servers
+            // and in this specific case the request will be forwarded to all RS serving regions for a given GTS.
+            // It is therefore necessary to keep track of how many datapoints were already fetched and
+            // shrink the GTS so we do not return too many.
+            //
             
-            if (count >= 0 && lastCount + GTSHelper.nvalues(gts) - boundary > count) {
-              // We would add too many datapoints, we will shrink the GTS.
-              // As it it sorted in reverse order of the ticks (since the datapoints are organized
-              // this way in HBase), we just need to shrink the GTS.
-              gts = GTSHelper.shrinkTo(gts, (int) Math.max(count - lastCount + boundary, 0));
+            if (countOnly && lastCount + GTSHelper.nvalues(gts) > count) {
+              gts = GTSHelper.shrinkTo(gts, (int) Math.max(count - lastCount, 0));              
             }
-            
+
             lastCount += GTSHelper.nvalues(gts);
             
             //
@@ -605,6 +672,8 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
               throw new WarpScriptException(getName() + " exceeded limit of " + fetchLimit + " datapoints, current count is " + fetched.get());
               //break;
             }
+            
+            stack.handleSignal();
           }      
         } catch (WarpScriptException ee) {
           throw ee;
@@ -617,7 +686,7 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
         // If there is one current GTS, push it onto the stack (only if not ventilating per type)
         //
         
-        if (null != base && null == typelabel) {
+        if (null != base && null == typeattr) {
           series.add(base);
         }     
         
@@ -638,7 +707,9 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
         }
       }
     }
-           
+        
+    stack.setAttribute(StandaloneAcceleratedStoreClient.ATTR_REPORT, StandaloneAcceleratedStoreClient.accelerated());
+    
     stack.push(series);
     
     //
@@ -954,7 +1025,7 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
       if (!(o instanceof Long)) {
         throw new WarpScriptException(getName() + " Invalid type for parameter '" + PARAM_BOUNDARY + "'.");
       }
-      int boundary = ((Long) o).intValue();
+      long boundary = ((Long) o).longValue();
       params.put(PARAM_BOUNDARY_PRE, boundary);
       params.put(PARAM_BOUNDARY_POST, boundary);
     }
@@ -964,7 +1035,7 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
       if (!(o instanceof Long)) {
         throw new WarpScriptException(getName() + " Invalid type for parameter '" + PARAM_BOUNDARY_PRE + "'.");
       }
-      int boundary = ((Long) o).intValue();
+      long boundary = ((Long) o).longValue();
       params.put(PARAM_BOUNDARY_PRE, boundary);
     }
 
@@ -973,7 +1044,7 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
       if (!(o instanceof Long)) {
         throw new WarpScriptException(getName() + " Invalid type for parameter '" + PARAM_BOUNDARY_POST + "'.");
       }
-      int boundary = ((Long) o).intValue();
+      long boundary = ((Long) o).longValue();
       params.put(PARAM_BOUNDARY_POST, boundary);
     }
     
@@ -1170,11 +1241,7 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
         } catch (NumberFormatException nfe) {
           // Not string representation of a Long, try ISO8601
           try {
-            if (SystemUtils.isJavaVersionAtLeast(JavaVersion.JAVA_1_8)) {
-              timestamp = io.warp10.script.unary.TOTIMESTAMP.parseTimestamp((String) timestampRepresentation);
-            } else {
-              timestamp = fmt.parseDateTime((String) timestampRepresentation).getMillis() * Constants.TIME_UNITS_PER_MS;
-            }
+            timestamp = io.warp10.script.unary.TOTIMESTAMP.parseTimestamp((String) timestampRepresentation);
           } catch (WarpScriptException | IllegalArgumentException e) {
             // Don't set the cause of the execption because we don't know which of the two (nfs or e) it is.
             throw new WarpScriptException("Invalid format for parameter '" + timestampRepresentationParameterName + "'.");

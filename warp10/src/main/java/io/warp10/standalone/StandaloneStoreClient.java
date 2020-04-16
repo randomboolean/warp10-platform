@@ -89,7 +89,7 @@ public class StandaloneStoreClient implements StoreClient {
   }
   
   @Override
-  public GTSDecoderIterator fetch(final ReadToken token, final List<Metadata> metadatas, final long now, final long then, long count, long skip, double sample, boolean writeTimestamp, int preBoundary, int postBoundary) {
+  public GTSDecoderIterator fetch(final ReadToken token, final List<Metadata> metadatas, final long now, final long then, long count, long skip, double sample, boolean writeTimestamp, long preBoundary, long postBoundary) {
 
     if (preBoundary < 0) {
       preBoundary = 0;
@@ -147,8 +147,8 @@ public class StandaloneStoreClient implements StoreClient {
     
     Collections.sort(metadatas, MetadataIdComparator.COMPARATOR);
         
-    final int preB = preBoundary;
-    final int postB = postBoundary;
+    final long preB = preBoundary;
+    final long postB = postBoundary;
 
     final long fskip = skip;
     final double fsample = sample;
@@ -159,8 +159,8 @@ public class StandaloneStoreClient implements StoreClient {
       Random prng = fsample < 1.0D ? new Random() : null;
       
       long skip = fskip;
-      int preBoundary = preB;
-      int postBoundary = postB;
+      long preBoundary = preB;
+      long postBoundary = postB;
       
       int idx = -1;
        
@@ -197,10 +197,11 @@ public class StandaloneStoreClient implements StoreClient {
         //
         while (postBoundary > 0 && encoder.size() < MAX_ENCODER_SIZE) {          
           Entry<byte[], byte[]> kv = iterator.prev();
-          // Check if the previous row is for the same GTS
+          // Check if the previous row is for the same GTS (prefix + 8 bytes for class id + 8 bytes for labels id)
           // 128bits
           int i = Constants.HBASE_RAW_DATA_KEY_PREFIX.length + 8 + 8;
 
+          // The post boundary scan exhausted the datapoints for the GTS, seek back to startrow
           if (0 != Bytes.compareTo(kv.getKey(), 0, i, startrow, 0, i)) {
             postBoundary = 0;
             iterator.seek(startrow);
@@ -230,87 +231,95 @@ public class StandaloneStoreClient implements StoreClient {
           }            
         }
         
-        do {
-          Entry<byte[], byte[]> kv = iterator.next();
-          
-          if (Bytes.compareTo(kv.getKey(), stoprow) > 0) {
-            //
-            // If a boundary was requested, fetch it
-            //
+        //
+        // Do not attempt to fetch the time range or pre boundary
+        // if the postBoundary is not complete or if the encoder
+        // has already reached its maximum allowed size
+        //
+        
+        if (postBoundary <= 0 && encoder.size() < MAX_ENCODER_SIZE) {
+          do {
+            Entry<byte[], byte[]> kv = iterator.next();
             
-            while (preBoundary > 0 && encoder.size() < MAX_ENCODER_SIZE) {
-              // Check if the previous row is for the same GTS
-              // 128bits
-              int i = Constants.HBASE_RAW_DATA_KEY_PREFIX.length + 8 + 8;
-              if (0 != Bytes.compareTo(kv.getKey(), 0, i, stoprow, 0, i)) {
-                preBoundary = 0;
-                break;
-              }
-              byte[] k = kv.getKey();          
-              long basets = k[i++] & 0xFFL;
-              basets <<= 8; basets |= (k[i++] & 0xFFL); 
-              basets <<= 8; basets |= (k[i++] & 0xFFL); 
-              basets <<= 8; basets |= (k[i++] & 0xFFL); 
-              basets <<= 8; basets |= (k[i++] & 0xFFL); 
-              basets <<= 8; basets |= (k[i++] & 0xFFL); 
-              basets <<= 8; basets |= (k[i++] & 0xFFL); 
-              basets <<= 8; basets |= (k[i++] & 0xFFL); 
-              basets = Long.MAX_VALUE - basets;
+            if (Bytes.compareTo(kv.getKey(), stoprow) > 0) {
+              //
+              // If a boundary was requested, fetch it
+              //
+              
+              while (preBoundary > 0 && encoder.size() < MAX_ENCODER_SIZE) {
+                // Check if the row is for the same GTS, if not then we are done
+                // 128bits
+                int i = Constants.HBASE_RAW_DATA_KEY_PREFIX.length + 8 + 8;
+                if (0 != Bytes.compareTo(kv.getKey(), 0, i, stoprow, 0, i)) {
+                  preBoundary = 0;
+                  break;
+                }
+                byte[] k = kv.getKey();          
+                long basets = k[i++] & 0xFFL;
+                basets <<= 8; basets |= (k[i++] & 0xFFL); 
+                basets <<= 8; basets |= (k[i++] & 0xFFL); 
+                basets <<= 8; basets |= (k[i++] & 0xFFL); 
+                basets <<= 8; basets |= (k[i++] & 0xFFL); 
+                basets <<= 8; basets |= (k[i++] & 0xFFL); 
+                basets <<= 8; basets |= (k[i++] & 0xFFL); 
+                basets <<= 8; basets |= (k[i++] & 0xFFL); 
+                basets = Long.MAX_VALUE - basets;
 
-              GTSDecoder decoder = new GTSDecoder(basets, keystore.getKey(KeyStore.AES_LEVELDB_DATA), ByteBuffer.wrap(kv.getValue()));
-              decoder.next();
-              try {
-                encoder.addValue(decoder.getTimestamp(), decoder.getLocation(), decoder.getElevation(), decoder.getBinaryValue());
-                preBoundary--;
-              } catch (IOException ioe) {
-                throw new RuntimeException(ioe);
-              }            
-              kv = iterator.next();              
+                GTSDecoder decoder = new GTSDecoder(basets, keystore.getKey(KeyStore.AES_LEVELDB_DATA), ByteBuffer.wrap(kv.getValue()));
+                decoder.next();
+                try {
+                  encoder.addValue(decoder.getTimestamp(), decoder.getLocation(), decoder.getElevation(), decoder.getBinaryValue());
+                  preBoundary--;
+                } catch (IOException ioe) {
+                  throw new RuntimeException(ioe);
+                }            
+                kv = iterator.next();              
+              }
+              
+              startrow = null;
+              break;
             }
             
-            startrow = null;
-            break;
-          }
-          
-          ByteBuffer bb = ByteBuffer.wrap(kv.getKey()).order(ByteOrder.BIG_ENDIAN);
-          
-          bb.position(Constants.HBASE_RAW_DATA_KEY_PREFIX.length + 8 + 8);            
-          
-          long basets = Long.MAX_VALUE - bb.getLong();
-          
-          byte[] v = kv.getValue();
-          
-          //
-          // Skip datapoints
-          //
-          
-          if (skip > 0) {
-            skip--;
-            continue;
-          }
-          
-          //
-          // Sample datapoints
-          //
-          
-          if (fsample < 1.0D && prng.nextDouble() > fsample) {
-            continue;
-          }
-          
-          valueBytes += v.length;
-          keyBytes += kv.getKey().length;          
-          datapoints++;
-          
-          nvalues--;
-                    
-          GTSDecoder decoder = new GTSDecoder(basets, keystore.getKey(KeyStore.AES_LEVELDB_DATA), ByteBuffer.wrap(kv.getValue()));
-          decoder.next();
-          try {
-            encoder.addValue(decoder.getTimestamp(), decoder.getLocation(), decoder.getElevation(), decoder.getBinaryValue());
-          } catch (IOException ioe) {
-            throw new RuntimeException(ioe);
-          }            
-        } while(iterator.hasNext() && encoder.size() < MAX_ENCODER_SIZE && nvalues > 0);
+            ByteBuffer bb = ByteBuffer.wrap(kv.getKey()).order(ByteOrder.BIG_ENDIAN);
+            
+            bb.position(Constants.HBASE_RAW_DATA_KEY_PREFIX.length + 8 + 8);            
+            
+            long basets = Long.MAX_VALUE - bb.getLong();
+            
+            byte[] v = kv.getValue();
+            
+            //
+            // Skip datapoints
+            //
+            
+            if (skip > 0) {
+              skip--;
+              continue;
+            }
+            
+            //
+            // Sample datapoints
+            //
+            
+            if (fsample < 1.0D && prng.nextDouble() > fsample) {
+              continue;
+            }
+            
+            valueBytes += v.length;
+            keyBytes += kv.getKey().length;          
+            datapoints++;
+            
+            nvalues--;
+                      
+            GTSDecoder decoder = new GTSDecoder(basets, keystore.getKey(KeyStore.AES_LEVELDB_DATA), ByteBuffer.wrap(kv.getValue()));
+            decoder.next();
+            try {
+              encoder.addValue(decoder.getTimestamp(), decoder.getLocation(), decoder.getElevation(), decoder.getBinaryValue());
+            } catch (IOException ioe) {
+              throw new RuntimeException(ioe);
+            }            
+          } while(iterator.hasNext() && encoder.size() < MAX_ENCODER_SIZE && nvalues > 0);          
+        }
 
         encoder.setMetadata(metadatas.get(idx));
 
@@ -382,8 +391,9 @@ public class StandaloneStoreClient implements StoreClient {
               startrow = null;
             } else {
               //
-              // If we are time based or value count based with values left to read, return true
-              if (-1 == fcount || nvalues > 0) {
+              // If we are time based or value count based with values left to read or with boundaries still to be fetched,
+              // return true
+              if (-1 == fcount || nvalues > 0 || preBoundary > 0 || postBoundary > 0) {
                 return true;
               } else {
                 startrow = null;
