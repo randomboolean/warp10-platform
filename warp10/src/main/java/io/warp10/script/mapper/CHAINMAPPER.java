@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Mapper which returns the absolute value of the value passed as parameter
+ * Combine several mappers into a single one.
  */
 public class CHAINMAPPER extends FormattedWarpScriptFunction {
 
@@ -43,7 +43,7 @@ public class CHAINMAPPER extends FormattedWarpScriptFunction {
   public CHAINMAPPER(String name) {
     super(name);
 
-    getDocstring().append("Return the shape of an input list if it could be a tensor (or multidimensional array), or raise an Exception.");
+    getDocstring().append("Combine several mappers into a single one.");
 
     args = new ArgumentsBuilder()
       .addListArgument(WarpScriptMapperFunction.class, LIST, "The input list of mappers to chain.")
@@ -113,7 +113,7 @@ public class CHAINMAPPER extends FormattedWarpScriptFunction {
               } else {
                 singleRes = (Object[]) res;
               }
-              
+
               tmp[3] = new Long[]{(long) singleRes[0]};
               tmp[4] = new Long[]{(long) singleRes[1]};
               tmp[5] = new Long[]{(long) singleRes[2]};
