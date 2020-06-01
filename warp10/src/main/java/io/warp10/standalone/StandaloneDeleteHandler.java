@@ -296,11 +296,38 @@ public class StandaloneDeleteHandler extends AbstractHandler {
     // Extract nocache/nopersist
     //
     
-    boolean nocache = null != request.getParameter(StandaloneAcceleratedStoreClient.NOCACHE);
-    boolean nopersist = null != request.getParameter(StandaloneAcceleratedStoreClient.NOPERSIST);
+    boolean nocache = AcceleratorConfig.getDefaultDeleteNocache();
+    boolean forcedNocache = false;
+    boolean nopersist = AcceleratorConfig.getDefaultDeleteNopersist();
+    boolean forcedNopersist = false;
+    
+    if (null != request.getParameter(AcceleratorConfig.NOCACHE)) {
+      forcedNocache = true;
+      nocache = true;
+    }
+    if (null != request.getParameter(AcceleratorConfig.CACHE)) {
+      if (forcedNocache) {
+        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot specify both '" + AcceleratorConfig.NOCACHE + "' and '" + AcceleratorConfig.CACHE + "'.");;
+        return;
+      }
+      forcedNocache = true;
+      nocache = false;
+    }
+    if (null != request.getParameter(AcceleratorConfig.NOPERSIST)) {
+      forcedNopersist = true;
+      nopersist = true;
+    }
+    if (null != request.getParameter(AcceleratorConfig.PERSIST)) {
+      if (forcedNopersist) {
+        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot specify both '" + AcceleratorConfig.NOPERSIST + "' and '" + AcceleratorConfig.PERSIST + "'.");;
+        return;
+      }
+      forcedNopersist = true;
+      nopersist = false;
+    }
 
     if (nocache && nopersist) {
-      response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot specify both '" + StandaloneAcceleratedStoreClient.NOCACHE + "' and '" + StandaloneAcceleratedStoreClient.NOPERSIST + "'.");;
+      response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot specify both '" + AcceleratorConfig.NOCACHE + "' and '" + AcceleratorConfig.NOPERSIST + "'.");;
       return;
     }
 
@@ -473,7 +500,7 @@ public class StandaloneDeleteHandler extends AbstractHandler {
       }
       
       if (!hasRange && (nocache || nopersist)) {
-        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Time range is mandatory when specifying '" + StandaloneAcceleratedStoreClient.NOCACHE + "' or '" + StandaloneAcceleratedStoreClient.NOPERSIST + "'.");
+        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Time range is mandatory when specifying '" + AcceleratorConfig.NOCACHE + "' or '" + AcceleratorConfig.NOPERSIST + "'.");
         return;
       }
       
@@ -562,15 +589,15 @@ public class StandaloneDeleteHandler extends AbstractHandler {
       metadatas.sort(MetadataIdComparator.COMPARATOR);
       
       if (nocache) {
-        StandaloneAcceleratedStoreClient.nocache();
+        AcceleratorConfig.nocache();
       } else {
-        StandaloneAcceleratedStoreClient.cache();        
+        AcceleratorConfig.cache();        
       }
       
       if (nopersist) {
-        StandaloneAcceleratedStoreClient.nopersist();
+        AcceleratorConfig.nopersist();
       } else {
-        StandaloneAcceleratedStoreClient.persist();        
+        AcceleratorConfig.persist();        
       }
 
       for (Metadata metadata: metadatas) {                
@@ -629,7 +656,7 @@ public class StandaloneDeleteHandler extends AbstractHandler {
         gts++;
 
         // Log detailed metrics for this GTS owner and app
-        Map<String, String> labels = new HashMap<>();
+        Map<String, String> labels = new HashMap<String, String>();
         labels.put(SensisionConstants.SENSISION_LABEL_OWNER, metadata.getLabels().get(Constants.OWNER_LABEL));
         labels.put(SensisionConstants.SENSISION_LABEL_APPLICATION, metadata.getLabels().get(Constants.APPLICATION_LABEL));
         Sensision.update(SensisionConstants.SENSISION_CLASS_CONTINUUM_STANDALONE_DELETE_DATAPOINTS_PEROWNERAPP, labels, localCount);

@@ -16,14 +16,16 @@
 
 package io.warp10.script.functions;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import io.warp10.script.NamedWarpScriptFunction;
 import io.warp10.script.WarpScriptException;
 import io.warp10.script.WarpScriptStack;
 import io.warp10.script.WarpScriptStackFunction;
-import io.warp10.standalone.StandaloneAcceleratedStoreClient;
+import io.warp10.standalone.AcceleratorConfig;
 
 public class ACCELREPORT extends NamedWarpScriptFunction implements WarpScriptStackFunction {
   
@@ -34,6 +36,10 @@ public class ACCELREPORT extends NamedWarpScriptFunction implements WarpScriptSt
   private static final String KEY_CHUNK_COUNT = "chunkcount";
   private static final String KEY_CHUNK_SPAN = "chunkspan";
   
+  private static final String KEY_DEFAULTS_WRITE = "defaults.write";
+  private static final String KEY_DEFAULTS_DELETE = "defaults.delete";
+  private static final String KEY_DEFAULTS_READ = "defaults.read";
+  
   public ACCELREPORT(String name) {
     super(name);
   }
@@ -41,17 +47,53 @@ public class ACCELREPORT extends NamedWarpScriptFunction implements WarpScriptSt
   @Override
   public Object apply(WarpScriptStack stack) throws WarpScriptException {
     
-    Object status = stack.getAttribute(StandaloneAcceleratedStoreClient.ATTR_REPORT);
-    
     Map<Object,Object> report = new HashMap<Object,Object>();
     
-    report.put(KEY_CACHE, StandaloneAcceleratedStoreClient.isCache());
-    report.put(KEY_PERSIST, StandaloneAcceleratedStoreClient.isPersist());
-    report.put(KEY_STATUS, StandaloneAcceleratedStoreClient.isInstantiated());
-    report.put(KEY_ACCELERATED, StandaloneAcceleratedStoreClient.accelerated());
-    report.put(KEY_CHUNK_COUNT, (long) StandaloneAcceleratedStoreClient.getChunkCount());
-    report.put(KEY_CHUNK_SPAN, StandaloneAcceleratedStoreClient.getChunkSpan());
-
+    report.put(KEY_CACHE, AcceleratorConfig.isCache());
+    report.put(KEY_PERSIST, AcceleratorConfig.isPersist());
+    report.put(KEY_STATUS, AcceleratorConfig.isInstantiated());
+    report.put(KEY_ACCELERATED, AcceleratorConfig.accelerated());
+    report.put(KEY_CHUNK_COUNT, (long) AcceleratorConfig.getChunkCount());
+    report.put(KEY_CHUNK_SPAN, AcceleratorConfig.getChunkSpan());
+    List<String> defaults = new ArrayList<String>(2);
+    if (AcceleratorConfig.getDefaultWriteNocache()) {
+      defaults.add(AcceleratorConfig.NOCACHE);
+    } else {
+      defaults.add(AcceleratorConfig.CACHE);      
+    }
+    if (AcceleratorConfig.getDefaultWriteNopersist()) {
+      defaults.add(AcceleratorConfig.NOPERSIST);
+    } else {
+      defaults.add(AcceleratorConfig.PERSIST);            
+    }
+    report.put(KEY_DEFAULTS_WRITE, defaults);
+    
+    defaults = new ArrayList<String>(2);
+    if (AcceleratorConfig.getDefaultReadNocache()) {
+      defaults.add(AcceleratorConfig.NOCACHE);
+    } else {
+      defaults.add(AcceleratorConfig.CACHE);      
+    }
+    if (AcceleratorConfig.getDefaultReadNopersist()) {
+      defaults.add(AcceleratorConfig.NOPERSIST);
+    } else {
+      defaults.add(AcceleratorConfig.PERSIST);            
+    }
+    report.put(KEY_DEFAULTS_READ, defaults);
+    
+    defaults = new ArrayList<String>(2);
+    if (AcceleratorConfig.getDefaultDeleteNocache()) {
+      defaults.add(AcceleratorConfig.NOCACHE);
+    } else {
+      defaults.add(AcceleratorConfig.CACHE);      
+    }
+    if (AcceleratorConfig.getDefaultDeleteNopersist()) {
+      defaults.add(AcceleratorConfig.NOPERSIST);
+    } else {
+      defaults.add(AcceleratorConfig.PERSIST);            
+    }
+    report.put(KEY_DEFAULTS_DELETE, defaults);
+    
     stack.push(report);
 
     return stack;

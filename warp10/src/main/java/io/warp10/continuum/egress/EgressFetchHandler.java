@@ -96,7 +96,7 @@ import io.warp10.quasar.token.thrift.data.ReadToken;
 import io.warp10.script.WarpScriptException;
 import io.warp10.script.functions.FETCH;
 import io.warp10.sensision.Sensision;
-import io.warp10.standalone.StandaloneAcceleratedStoreClient;
+import io.warp10.standalone.AcceleratorConfig;
 
 public class EgressFetchHandler extends AbstractHandler {
 
@@ -142,16 +142,10 @@ public class EgressFetchHandler extends AbstractHandler {
   
   @Override
   public void handle(String target, Request baseRequest, HttpServletRequest req, HttpServletResponse resp) throws IOException, ServletException {
-    boolean fromArchive = false;
     boolean splitFetch = false;
-    boolean writeTimestamp = false;
-    
+
     if (Constants.API_ENDPOINT_FETCH.equals(target)) {
       baseRequest.setHandled(true);
-      fromArchive = false;
-    } else if (Constants.API_ENDPOINT_AFETCH.equals(target)) {
-      baseRequest.setHandled(true);
-      fromArchive = true;
     } else if (Constants.API_ENDPOINT_SFETCH.equals(target)) {
       baseRequest.setHandled(true);
       splitFetch = true;
@@ -215,8 +209,35 @@ public class EgressFetchHandler extends AbstractHandler {
         postBoundaryParam = req.getParameter(Constants.HTTP_PARAM_POSTBOUNDARY);
       }
           
-      boolean nocache = null != req.getParameter(StandaloneAcceleratedStoreClient.NOCACHE);
-      boolean nopersist = null != req.getParameter(StandaloneAcceleratedStoreClient.NOPERSIST);
+      boolean nocache = AcceleratorConfig.getDefaultReadNocache();
+      boolean forcedNocache = false;
+      boolean nopersist = AcceleratorConfig.getDefaultReadNopersist();
+      boolean forcedNopersist = false;
+      
+      if (null != req.getParameter(AcceleratorConfig.NOCACHE)) {
+        forcedNocache = true;
+        nocache = true;
+      }
+      if (null != req.getParameter(AcceleratorConfig.CACHE)) {
+        if (forcedNocache) {
+          resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot specify both '" + AcceleratorConfig.NOCACHE + "' and '" + AcceleratorConfig.CACHE + "'.");;
+          return;
+        }
+        forcedNocache = true;
+        nocache = false;
+      }
+      if (null != req.getParameter(AcceleratorConfig.NOPERSIST)) {
+        forcedNopersist = true;
+        nopersist = true;   
+      }
+      if (null != req.getParameter(AcceleratorConfig.PERSIST)) {
+        if (forcedNopersist) {
+          resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cannot specify both '" + AcceleratorConfig.NOPERSIST + "' and '" + AcceleratorConfig.PERSIST + "'.");;
+          return;
+        }
+        forcedNopersist = true;
+        nopersist = false;
+      }
       
       String maxDecoderLenParam = req.getParameter(Constants.HTTP_PARAM_MAXSIZE);
       int maxDecoderLen = null != maxDecoderLenParam ? Integer.parseInt(maxDecoderLenParam) : Constants.DEFAULT_PACKED_MAXSIZE;
@@ -376,11 +397,6 @@ public class EgressFetchHandler extends AbstractHandler {
         } catch (WarpScriptException ee) {
           throw new IOException(ee);
         }
-              
-        if (null == rtoken) {
-          resp.sendError(HttpServletResponse.SC_FORBIDDEN, "Missing token.");
-          return;
-        }      
       }
       
       boolean showAttr = "true".equals(req.getParameter(Constants.HTTP_PARAM_SHOWATTR));
@@ -631,7 +647,7 @@ public class EgressFetchHandler extends AbstractHandler {
             }         
           }
           
-          if (!itermeta.hasNext() && (itermeta instanceof MetadataIterator)) {
+          if (itermeta instanceof MetadataIterator) {
             try {
               ((MetadataIterator) itermeta).close();
             } catch (Exception e) {          
@@ -736,15 +752,15 @@ public class EgressFetchHandler extends AbstractHandler {
       boolean expose = rtoken.getAttributesSize() > 0 && rtoken.getAttributes().containsKey(Constants.TOKEN_ATTR_EXPOSE);
       
       if (nocache) {
-        StandaloneAcceleratedStoreClient.nocache();
+        AcceleratorConfig.nocache();
       } else {
-        StandaloneAcceleratedStoreClient.cache();        
+        AcceleratorConfig.cache();        
       }
       
       if (nopersist) {
-        StandaloneAcceleratedStoreClient.nopersist();
+        AcceleratorConfig.nopersist();
       } else {
-        StandaloneAcceleratedStoreClient.persist();        
+        AcceleratorConfig.persist();        
       }
       
       for (Iterator<Metadata> itermeta: iterators) {
@@ -756,7 +772,7 @@ public class EgressFetchHandler extends AbstractHandler {
           //
           
           if (metas.size() > FETCH_BATCHSIZE || !itermeta.hasNext()) {
-            try(GTSDecoderIterator iterrsc = storeClient.fetch(rtoken, metas, now, then, count, skip, sample, writeTimestamp, preBoundary, postBoundary)) {
+            try(GTSDecoderIterator iterrsc = storeClient.fetch(rtoken, metas, now, then, count, skip, sample, false, preBoundary, postBoundary)) {
               GTSDecoderIterator iter = iterrsc;
                           
               if (unpack) {
@@ -816,7 +832,7 @@ public class EgressFetchHandler extends AbstractHandler {
           }        
         }
         
-        if (!itermeta.hasNext() && (itermeta instanceof MetadataIterator)) {
+        if (itermeta instanceof MetadataIterator) {
           try {
             ((MetadataIterator) itermeta).close();
           } catch (Exception e) {          
@@ -1949,7 +1965,7 @@ public class EgressFetchHandler extends AbstractHandler {
           // If it is the first chunk or we changed chunk, create a new encoder
           //
           
-          if (null == chunkenc || (null != lastchunk && chunk != lastchunk)) {
+          if (null == chunkenc || chunk != lastchunk) {
             chunkenc = new GTSEncoder(0L);
             chunkenc.setMetadata(encoder.getMetadata());
             encoders.add(chunkenc);

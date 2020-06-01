@@ -113,51 +113,10 @@ import io.warp10.script.filter.FilterAny;
 import io.warp10.script.filter.FilterBySize;
 import io.warp10.script.filter.LatencyFilter;
 import io.warp10.script.functions.*;
-import io.warp10.script.functions.math.ACOS;
-import io.warp10.script.functions.math.ADDEXACT;
-import io.warp10.script.functions.math.ASIN;
-import io.warp10.script.functions.math.ATAN;
-import io.warp10.script.functions.math.ATAN2;
-import io.warp10.script.functions.math.CBRT;
-import io.warp10.script.functions.math.CEIL;
-import io.warp10.script.functions.math.COPYSIGN;
-import io.warp10.script.functions.math.COS;
-import io.warp10.script.functions.math.COSH;
-import io.warp10.script.functions.math.DECREMENTEXACT;
-import io.warp10.script.functions.math.EXP;
-import io.warp10.script.functions.math.EXPM1;
-import io.warp10.script.functions.math.FLOOR;
-import io.warp10.script.functions.math.FLOORDIV;
-import io.warp10.script.functions.math.FLOORMOD;
 import io.warp10.script.functions.math.GETEXPONENT;
-import io.warp10.script.functions.math.HYPOT;
-import io.warp10.script.functions.math.IEEEREMAINDER;
-import io.warp10.script.functions.math.INCREMENTEXACT;
-import io.warp10.script.functions.math.LOG;
-import io.warp10.script.functions.math.LOG10;
-import io.warp10.script.functions.math.LOG1P;
-import io.warp10.script.functions.math.MAX;
-import io.warp10.script.functions.math.MIN;
-import io.warp10.script.functions.math.MULTIPLYEXACT;
-import io.warp10.script.functions.math.NEGATEEXACT;
-import io.warp10.script.functions.math.NEXTAFTER;
-import io.warp10.script.functions.math.NEXTDOWN;
-import io.warp10.script.functions.math.NEXTUP;
 import io.warp10.script.functions.math.RANDOM;
-import io.warp10.script.functions.math.RINT;
 import io.warp10.script.functions.math.ROUND;
 import io.warp10.script.functions.math.SCALB;
-import io.warp10.script.functions.math.SIGNUM;
-import io.warp10.script.functions.math.SIN;
-import io.warp10.script.functions.math.SINH;
-import io.warp10.script.functions.math.SQRT;
-import io.warp10.script.functions.math.SUBTRACTEXACT;
-import io.warp10.script.functions.math.TAN;
-import io.warp10.script.functions.math.TANH;
-import io.warp10.script.functions.math.TODEGREES;
-import io.warp10.script.functions.math.TOINTEXACT;
-import io.warp10.script.functions.math.TORADIANS;
-import io.warp10.script.functions.math.ULP;
 import io.warp10.script.functions.shape.CHECKSHAPE;
 import io.warp10.script.functions.shape.HULLSHAPE;
 import io.warp10.script.functions.shape.PERMUTE;
@@ -214,8 +173,8 @@ import io.warp10.script.mapper.MapperToLong;
 import io.warp10.script.mapper.MapperToString;
 import io.warp10.script.mapper.MapperYear;
 import io.warp10.script.mapper.STRICTMAPPER;
-import io.warp10.script.op.OpAND;
 import io.warp10.script.op.OpAdd;
+import io.warp10.script.op.OpBoolean;
 import io.warp10.script.op.OpDiv;
 import io.warp10.script.op.OpEQ;
 import io.warp10.script.op.OpGE;
@@ -225,7 +184,6 @@ import io.warp10.script.op.OpLT;
 import io.warp10.script.op.OpMask;
 import io.warp10.script.op.OpMul;
 import io.warp10.script.op.OpNE;
-import io.warp10.script.op.OpOR;
 import io.warp10.script.op.OpSub;
 import io.warp10.script.processing.Pencode;
 import io.warp10.script.processing.color.Palpha;
@@ -326,7 +284,6 @@ import io.warp10.script.processing.typography.PtextLeading;
 import io.warp10.script.processing.typography.PtextMode;
 import io.warp10.script.processing.typography.PtextSize;
 import io.warp10.script.processing.typography.PtextWidth;
-import io.warp10.script.unary.ABS;
 import io.warp10.script.unary.COMPLEMENT;
 import io.warp10.script.unary.FROMBIN;
 import io.warp10.script.unary.FROMBITS;
@@ -649,6 +606,11 @@ public class WarpScriptLib {
   public static final String UNGZIP = "UNGZIP";
   public static final String DEFLATE = "DEFLATE";
   public static final String INFLATE = "INFLATE";
+  public static final String ECGEN = "ECGEN";
+  public static final String ECPRIVATE = "ECPRIVATE";
+  public static final String ECPUBLIC = "ECPUBLIC";
+  public static final String ECSIGN = "ECSIGN";
+  public static final String ECVERIFY = "ECVERIFY";
   public static final String RSAGEN = "RSAGEN";
   public static final String RSAENCRYPT = "RSAENCRYPT";
   public static final String RSADECRYPT = "RSADECRYPT";
@@ -1083,10 +1045,14 @@ public class WarpScriptLib {
   public static final String TOHHCODELONG = "->HHCODELONG";
   public static final String TOGTSHHCODE = "->GTSHHCODE";
   public static final String TOGTSHHCODELONG = "->GTSHHCODELONG";
+  public static final String TOGEOCELL = "->GEOCELL";
+  public static final String TOGEOSHAPE = "->GEOSHAPE";
   public static final String TOGEOHASH = "->GEOHASH";
   public static final String TOZ = "->Z";
   public static final String TOMAT = "->MAT";
   public static final String TOVEC = "->VEC";
+  public static final String TOVARINT = "->VARINT";
+  public static final String VARINTTO = "VARINT->";
 
   public static final String LISTTO = "LIST->";
   public static final String SETTO = "SET->";
@@ -1104,6 +1070,8 @@ public class WarpScriptLib {
   public static final String TSELEMENTSTO = "TSELEMENTS->";
   public static final String HHCODETO = "HHCODE->";
   public static final String GTSHHCODETO = "GTSHHCODE->";
+  public static final String GEOCELLTO = "GEOCELL->";
+  public static final String GEOSHAPETO = "GEOSHAPE->";
   public static final String GEOHASHTO = "GEOHASH->";
   public static final String GEOSPLIT = "GEOSPLIT";
   public static final String ZTO = "Z->";
@@ -1214,6 +1182,8 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new SETTO(SETTO));
     addNamedWarpScriptFunction(new TOVECTOR(TO_VECTOR));
     addNamedWarpScriptFunction(new VECTORTO(VTO));
+    addNamedWarpScriptFunction(new TOVARINT(TOVARINT));
+    addNamedWarpScriptFunction(new VARINTTO(VARINTTO));
     addNamedWarpScriptFunction(new UNION(UNION));
     addNamedWarpScriptFunction(new INTERSECTION(INTERSECTION));
     addNamedWarpScriptFunction(new DIFFERENCE(DIFFERENCE));
@@ -1428,7 +1398,7 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new COMPLEMENT("~"));
     addNamedWarpScriptFunction(new REVERSEBITS(REVBITS));
     addNamedWarpScriptFunction(new NOT(NOT));
-    addNamedWarpScriptFunction(new ABS(ABS));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(ABS, Math::abs, Math::abs));
     addNamedWarpScriptFunction(new TODOUBLE(TODOUBLE));
     addNamedWarpScriptFunction(new TOBOOLEAN(TOBOOLEAN));
     addNamedWarpScriptFunction(new TOLONG(TOLONG));
@@ -1472,6 +1442,11 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new UNGZIP(UNGZIP));
     addNamedWarpScriptFunction(new DEFLATE(DEFLATE));
     addNamedWarpScriptFunction(new INFLATE(INFLATE));
+    addNamedWarpScriptFunction(new ECGEN(ECGEN));
+    addNamedWarpScriptFunction(new ECPRIVATE(ECPRIVATE));
+    addNamedWarpScriptFunction(new ECPUBLIC(ECPUBLIC));
+    addNamedWarpScriptFunction(new ECSIGN(ECSIGN));
+    addNamedWarpScriptFunction(new ECVERIFY(ECVERIFY));
     addNamedWarpScriptFunction(new RSAGEN(RSAGEN));
     addNamedWarpScriptFunction(new RSAPUBLIC(RSAPUBLIC));
     addNamedWarpScriptFunction(new RSAPRIVATE(RSAPRIVATE));
@@ -1926,8 +1901,12 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new TOHHCODE(TOHHCODELONG, false));
     addNamedWarpScriptFunction(new TOHHCODE(TOGTSHHCODE, true, true));
     addNamedWarpScriptFunction(new TOHHCODE(TOGTSHHCODELONG, false, true));
+    addNamedWarpScriptFunction(new TOGEOCELL(TOGEOCELL));
+    addNamedWarpScriptFunction(new TOGEOSHAPE(TOGEOSHAPE));
     addNamedWarpScriptFunction(new HHCODETO(HHCODETO));
     addNamedWarpScriptFunction(new HHCODETO(GTSHHCODETO, true));
+    addNamedWarpScriptFunction(new GEOCELLTO(GEOCELLTO));
+    addNamedWarpScriptFunction(new GEOSHAPETO(GEOSHAPETO));
     addNamedWarpScriptFunction(new HHCODEFUNC(HHCODE_BBOX, HHCODEFUNC.HHCodeAction.BBOX));
     addNamedWarpScriptFunction(new HHCODEFUNC(HHCODE_CENTER, HHCODEFUNC.HHCodeAction.CENTER));
     addNamedWarpScriptFunction(new HHCODEFUNC(HHCODE_NORTH, HHCODEFUNC.HHCodeAction.NORTH));
@@ -2017,61 +1996,61 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new TOVEC(TOVEC));
     addNamedWarpScriptFunction(new VECTO(VECTO));
 
-    addNamedWarpScriptFunction(new COS(COS));
-    addNamedWarpScriptFunction(new COSH(COSH));
-    addNamedWarpScriptFunction(new ACOS(ACOS));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(COS, null, Math::cos));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(COSH, null, Math::cosh));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(ACOS, null, Math::acos));
 
-    addNamedWarpScriptFunction(new SIN(SIN));
-    addNamedWarpScriptFunction(new SINH(SINH));
-    addNamedWarpScriptFunction(new ASIN(ASIN));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(SIN, null, Math::sin));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(SINH, null, Math::sinh));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(ASIN, null, Math::asin));
 
-    addNamedWarpScriptFunction(new TAN(TAN));
-    addNamedWarpScriptFunction(new TANH(TANH));
-    addNamedWarpScriptFunction(new ATAN(ATAN));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(TAN, null, Math::tan));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(TANH, null, Math::tanh));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(ATAN, null, Math::atan));
 
-    addNamedWarpScriptFunction(new SIGNUM(SIGNUM));
-    addNamedWarpScriptFunction(new FLOOR(FLOOR));
-    addNamedWarpScriptFunction(new CEIL(CEIL));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(SIGNUM, null, Math::signum));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(FLOOR, null, Math::floor));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(CEIL, null, Math::ceil));
     addNamedWarpScriptFunction(new ROUND(ROUND));
 
-    addNamedWarpScriptFunction(new RINT(RINT));
-    addNamedWarpScriptFunction(new NEXTUP(NEXTUP));
-    addNamedWarpScriptFunction(new ULP(ULP));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(RINT, null, Math::rint));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(ULP, null, Math::ulp));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(NEXTUP, null, Math::nextUp));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(NEXTDOWN, null, Math::nextDown));
 
-    addNamedWarpScriptFunction(new SQRT(SQRT));
-    addNamedWarpScriptFunction(new CBRT(CBRT));
-    addNamedWarpScriptFunction(new EXP(EXP));
-    addNamedWarpScriptFunction(new EXPM1(EXPM1));
-    addNamedWarpScriptFunction(new LOG(LOG_));
-    addNamedWarpScriptFunction(new LOG10(LOG10));
-    addNamedWarpScriptFunction(new LOG1P(LOG1P));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(SQRT, null, Math::sqrt));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(CBRT, null, Math::cbrt));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(EXP, null, Math::exp));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(EXPM1, null, Math::expm1));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(LOG_, null, Math::log));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(LOG10, null, Math::log10));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(LOG1P, null, Math::log1p));
 
-    addNamedWarpScriptFunction(new TORADIANS(TORADIANS));
-    addNamedWarpScriptFunction(new TODEGREES(TODEGREES));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(TORADIANS, null, Math::toRadians));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(TODEGREES, null, Math::toDegrees));
 
-    addNamedWarpScriptFunction(new MAX(MAX));
-    addNamedWarpScriptFunction(new MIN(MIN));
+    addNamedWarpScriptFunction(new NumericalBinaryFunction(MAX, Math::max, Math::max, true));
+    addNamedWarpScriptFunction(new NumericalBinaryFunction(MIN, Math::min, Math::min, true));
 
-    addNamedWarpScriptFunction(new COPYSIGN(COPYSIGN));
-    addNamedWarpScriptFunction(new HYPOT(HYPOT));
-    addNamedWarpScriptFunction(new IEEEREMAINDER(IEEEREMAINDER));
-    addNamedWarpScriptFunction(new NEXTAFTER(NEXTAFTER));
-    addNamedWarpScriptFunction(new ATAN2(ATAN2));
+    addNamedWarpScriptFunction(new NumericalBinaryFunction(COPYSIGN, null, Math::copySign, false));
+    addNamedWarpScriptFunction(new NumericalBinaryFunction(HYPOT, null, Math::hypot, false));
+    addNamedWarpScriptFunction(new NumericalBinaryFunction(IEEEREMAINDER, null, Math::IEEEremainder, false));
+    addNamedWarpScriptFunction(new NumericalBinaryFunction(NEXTAFTER, null, Math::nextAfter, false));
+    addNamedWarpScriptFunction(new NumericalBinaryFunction(ATAN2, null, Math::atan2, false));
 
-    addNamedWarpScriptFunction(new FLOORDIV(FLOORDIV));
-    addNamedWarpScriptFunction(new FLOORMOD(FLOORMOD));
+    addNamedWarpScriptFunction(new NumericalBinaryFunction(FLOORDIV, Math::floorDiv, null, false));
+    addNamedWarpScriptFunction(new NumericalBinaryFunction(FLOORMOD, Math::floorMod, null, false));
 
-    addNamedWarpScriptFunction(new ADDEXACT(ADDEXACT));
-    addNamedWarpScriptFunction(new SUBTRACTEXACT(SUBTRACTEXACT));
-    addNamedWarpScriptFunction(new MULTIPLYEXACT(MULTIPLYEXACT));
-    addNamedWarpScriptFunction(new INCREMENTEXACT(INCREMENTEXACT));
-    addNamedWarpScriptFunction(new DECREMENTEXACT(DECREMENTEXACT));
-    addNamedWarpScriptFunction(new NEGATEEXACT(NEGATEEXACT));
-    addNamedWarpScriptFunction(new TOINTEXACT(TOINTEXACT));
+    addNamedWarpScriptFunction(new NumericalBinaryFunction(ADDEXACT, Math::addExact, null, true));
+    addNamedWarpScriptFunction(new NumericalBinaryFunction(SUBTRACTEXACT, Math::subtractExact, null, true));
+    addNamedWarpScriptFunction(new NumericalBinaryFunction(MULTIPLYEXACT, Math::multiplyExact, null, true));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(INCREMENTEXACT, Math::incrementExact, null));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(DECREMENTEXACT, Math::decrementExact, null));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(NEGATEEXACT, Math::negateExact, null));
+    addNamedWarpScriptFunction(new NumericalUnaryFunction(TOINTEXACT, Math::toIntExact, null));
 
     addNamedWarpScriptFunction(new SCALB(SCALB));
     addNamedWarpScriptFunction(new RANDOM(RANDOM));
-    addNamedWarpScriptFunction(new NEXTDOWN(NEXTDOWN));
     addNamedWarpScriptFunction(new GETEXPONENT(GETEXPONENT));
     
     addNamedWarpScriptFunction(new IDENT(IDENT));
@@ -2385,10 +2364,10 @@ public class WarpScriptLib {
     addNamedWarpScriptFunction(new OpGT("op.gt"));
     addNamedWarpScriptFunction(new OpLE("op.le"));
     addNamedWarpScriptFunction(new OpGE("op.ge"));
-    addNamedWarpScriptFunction(new OpAND("op.and.ignore-nulls", false));
-    addNamedWarpScriptFunction(new OpAND("op.and", true));
-    addNamedWarpScriptFunction(new OpOR("op.or.ignore-nulls", false));
-    addNamedWarpScriptFunction(new OpOR("op.or", true));
+    addNamedWarpScriptFunction(new OpBoolean("op.and.ignore-nulls", false, false));
+    addNamedWarpScriptFunction(new OpBoolean("op.and", false, true));
+    addNamedWarpScriptFunction(new OpBoolean("op.or.ignore-nulls", true, false));
+    addNamedWarpScriptFunction(new OpBoolean("op.or", true, true));
 
     /////////////////////////
 
@@ -2507,7 +2486,7 @@ public class WarpScriptLib {
         wse.register();
         
         String namespace = props.getProperty(Configuration.CONFIG_WARPSCRIPT_NAMESPACE_PREFIX + wse.getClass().getName(), "").trim(); 
-        if (null != namespace && !"".equals(namespace)) {
+        if (!"".equals(namespace)) {
           namespace = WarpURLDecoder.decode(namespace, StandardCharsets.UTF_8);
           LOG.info("LOADED extension '" + extension + "'" + " under namespace '" + namespace + "'.");
         } else {

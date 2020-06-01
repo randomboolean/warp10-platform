@@ -24,10 +24,8 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.EmptyStackException;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -61,6 +59,11 @@ public class MemoryWarpScriptStack implements WarpScriptStack, Progressable {
     DEFAULT_PROPERTIES = WarpConfig.getProperties();
   }
 
+  /**
+   * Should we update per function metrics
+   */
+  private boolean functionMetrics = true;
+      
   private Signal signal = null;
   private boolean signaled = false;
   
@@ -243,7 +246,7 @@ public class MemoryWarpScriptStack implements WarpScriptStack, Progressable {
     
     this.properties = properties;
 
-    int nregs = Integer.parseInt(null == this.properties ? String.valueOf(WarpScriptStack.DEFAULT_REGISTERS) : this.properties.getProperty(Configuration.CONFIG_WARPSCRIPT_REGISTERS, String.valueOf(WarpScriptStack.DEFAULT_REGISTERS)));
+    int nregs = Integer.parseInt(this.properties.getProperty(Configuration.CONFIG_WARPSCRIPT_REGISTERS, String.valueOf(WarpScriptStack.DEFAULT_REGISTERS)));
     allowLooseBlockComments = "true".equals(properties.getProperty(Configuration.WARPSCRIPT_ALLOW_LOOSE_BLOCK_COMMENTS, "false"));
     this.registers = new Object[nregs];    
   }
@@ -842,7 +845,7 @@ public class MemoryWarpScriptStack implements WarpScriptStack, Progressable {
             // Check WarpScript functions
             //
 
-            func = null != func ? func : defined.get(stmt);
+            func = defined.get(stmt);
 
             if (null != func && Boolean.FALSE.equals(getAttribute(WarpScriptStack.ATTRIBUTE_ALLOW_REDEFINED))) {
               throw new WarpScriptException("Disallowed redefined function '" + stmt + "'.");
@@ -878,9 +881,11 @@ public class MemoryWarpScriptStack implements WarpScriptStack, Progressable {
                   macros.get(0).add(func);
                 }
               }
-            } finally {
-              Sensision.update(SensisionConstants.SENSISION_CLASS_WARPSCRIPT_FUNCTION_COUNT, labels, 1);
-              Sensision.update(SensisionConstants.SENSISION_CLASS_WARPSCRIPT_FUNCTION_TIME_US, labels, (System.nanoTime() - nano) / 1000L);
+            } finally { 
+              if (functionMetrics) {
+                Sensision.update(SensisionConstants.SENSISION_CLASS_WARPSCRIPT_FUNCTION_COUNT, labels, 1);
+                Sensision.update(SensisionConstants.SENSISION_CLASS_WARPSCRIPT_FUNCTION_TIME_US, labels, (System.nanoTime() - nano) / 1000L);
+              }
             }
           }
         } catch (WarpScriptATCException e) {
@@ -1649,6 +1654,9 @@ public class MemoryWarpScriptStack implements WarpScriptStack, Progressable {
         default:
       }            
     }
-
+  }
+  
+  public void setFunctionMetrics(boolean state) {
+    this.functionMetrics = state;
   }
 }

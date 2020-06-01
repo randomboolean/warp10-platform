@@ -72,7 +72,7 @@ import io.warp10.script.WarpScriptException;
 import io.warp10.script.WarpScriptStack;
 import io.warp10.script.WarpScriptStackFunction;
 import io.warp10.sensision.Sensision;
-import io.warp10.standalone.StandaloneAcceleratedStoreClient;
+import io.warp10.standalone.AcceleratorConfig;
 
 import org.joda.time.format.ISOPeriodFormat;
 
@@ -466,23 +466,29 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
         
         long end = (long) params.get(PARAM_END);
                 
-        boolean nocache = Boolean.TRUE.equals(stack.getAttribute(StandaloneAcceleratedStoreClient.ATTR_NOCACHE));
-        boolean nopersist = Boolean.TRUE.equals(stack.getAttribute(StandaloneAcceleratedStoreClient.ATTR_NOPERSIST));
+        boolean nocache = AcceleratorConfig.getDefaultReadNocache();
+        if (null != stack.getAttribute(AcceleratorConfig.ATTR_NOCACHE)) {
+          nocache = Boolean.TRUE.equals(stack.getAttribute(AcceleratorConfig.ATTR_NOCACHE));
+        }
+        boolean nopersist = AcceleratorConfig.getDefaultReadNopersist();
+        if (null != stack.getAttribute(AcceleratorConfig.ATTR_NOPERSIST)) {
+          nopersist = Boolean.TRUE.equals(stack.getAttribute(AcceleratorConfig.ATTR_NOPERSIST));
+        }
 
         if (nocache) {
-          StandaloneAcceleratedStoreClient.nocache();
+          AcceleratorConfig.nocache();
         } else {
-          StandaloneAcceleratedStoreClient.cache();          
+          AcceleratorConfig.cache();          
         }
         
         if (nopersist) {
-          StandaloneAcceleratedStoreClient.nopersist();
+          AcceleratorConfig.nopersist();
         } else {
-          StandaloneAcceleratedStoreClient.persist();
+          AcceleratorConfig.persist();
         }
         
         // Flag indicating the FETCH is a count only, no pre/post boundaries
-        boolean countOnly = count >= 0 && 0 == preBoundary & 0 == postBoundary;
+        boolean countOnly = count >= 0 && 0 == preBoundary && 0 == postBoundary;
         
         try (GTSDecoderIterator gtsiter = gtsStore.fetch(rtoken, metadatas, end, then, count, skip, sample, writeTimestamp, preBoundary, postBoundary)) {
           while(gtsiter.hasNext()) {           
@@ -708,8 +714,6 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
       }
     }
         
-    stack.setAttribute(StandaloneAcceleratedStoreClient.ATTR_REPORT, StandaloneAcceleratedStoreClient.accelerated());
-    
     stack.push(series);
     
     //
@@ -894,39 +898,26 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
           params.put(PARAM_END, TimeSource.getTime());
         }
 
-        // If fetch by count, check that maxDuration is for count (ie is negative) and apply limit.
-        if (params.containsKey(PARAM_COUNT)) {
-          if (metaset.getMaxduration() >= 0) {
-            throw new WarpScriptException(getName() + " given MetaSet forbids '" + PARAM_COUNT + "' based requests.");
-          }
-
-          if ((long) params.get(PARAM_COUNT) > -metaset.getMaxduration()) {
-            params.put(PARAM_COUNT, -metaset.getMaxduration());
+        // Metaset limits timespan
+        if (metaset.getMaxduration() >= 0) {
+          // Set timespan to limit if not defined or greater than limit
+          if (!params.containsKey(PARAM_TIMESPAN) || (long) params.get(PARAM_TIMESPAN) > metaset.getMaxduration()) {
+            params.put(PARAM_TIMESPAN, metaset.getMaxduration());
           }
         }
 
-        // If fetch by duration, check that maxDuration is for count (ie is positive) and apply limit.
-        if (params.containsKey(PARAM_TIMESPAN)) {
-          if (metaset.getMaxduration() <= 0) {
-            throw new WarpScriptException(getName() + " given MetaSet forbids '" + PARAM_TIMESPAN + "' based requests.");
-          }
-
-          if ((long) params.get(PARAM_TIMESPAN) > metaset.getMaxduration()) {
-            params.put(PARAM_TIMESPAN, metaset.getMaxduration());
+        // Metaset limits count
+        if (metaset.getMaxduration() < 0) {
+          // Set count to limit if not defined or greater than limit
+          if (!params.containsKey(PARAM_COUNT) || (long) params.get(PARAM_COUNT) > -metaset.getMaxduration()) {
+            params.put(PARAM_COUNT, -metaset.getMaxduration());
           }
         }
       }
 
-      if (metaset.isSetNotbefore()) {
-        // forbid count based requests
-        if (null != params.get(PARAM_COUNT)) {
-          throw new WarpScriptException(getName() + " MetaSet forbids count based requests.");
-        }
-
-        // Limit end to 'notbefore'.
-        if ((long) params.get(PARAM_END) < metaset.getNotbefore()) {
-          params.put(PARAM_END, metaset.getNotbefore());
-        }
+      // Limit end to 'notbefore'.
+      if (metaset.isSetNotbefore() && (long) params.get(PARAM_END) < metaset.getNotbefore()) {
+        params.put(PARAM_END, metaset.getNotbefore());
       }
 
       // Limit end to 'notafter'.
@@ -934,16 +925,18 @@ public class FETCH extends NamedWarpScriptFunction implements WarpScriptStackFun
         params.put(PARAM_END, metaset.getNotafter());
       }
 
-      // Recompute start because end or timespan may have been changed.
-      try {
-        // Check edge case
-        if (0 == (long) params.get(PARAM_TIMESPAN) && Long.MAX_VALUE == (long) params.get(PARAM_END)) {
-          throw new WarpScriptException(getName() + " use of MetaSet restrictions make it so '" + PARAM_TIMESPAN + "' is 0 and '" + PARAM_START + "' is MIN_VALUE, which is not supported.");
+      // If the fetch uses a timespan or if this metaset enforce it, recompute start because end or timespan may have been changed.
+      if(params.containsKey(PARAM_TIMESPAN)) {
+        try {
+          // Check edge case
+          if (0 == (long) params.get(PARAM_TIMESPAN) && Long.MAX_VALUE == (long) params.get(PARAM_END)) {
+            throw new WarpScriptException(getName() + " use of MetaSet restrictions make it so '" + PARAM_TIMESPAN + "' is 0 and '" + PARAM_START + "' is MIN_VALUE, which is not supported.");
+          }
+          long newStart = Math.subtractExact((long) params.get(PARAM_END), (long) params.get(PARAM_TIMESPAN)) + 1;
+          params.put(PARAM_START, newStart);
+        } catch (ArithmeticException ae) {
+          params.put(PARAM_START, Long.MIN_VALUE);
         }
-        long newStart = Math.subtractExact((long) params.get(PARAM_END), (long) params.get(PARAM_TIMESPAN)) + 1;
-        params.put(PARAM_START, newStart);
-      } catch (ArithmeticException ae) {
-        params.put(PARAM_START, Long.MIN_VALUE);
       }
     }
     

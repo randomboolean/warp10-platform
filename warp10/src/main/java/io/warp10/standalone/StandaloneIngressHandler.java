@@ -57,6 +57,7 @@ import java.text.ParseException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.GZIPInputStream;
@@ -295,6 +296,8 @@ public class StandaloneIngressHandler extends AbstractHandler {
     long lastActivity = System.currentTimeMillis();
     
     try {
+      WarpConfig.setThreadProperty(WarpConfig.THREAD_PROPERTY_SESSION, UUID.randomUUID().toString());
+      
       //
       // CORS header
       //
@@ -319,8 +322,12 @@ public class StandaloneIngressHandler extends AbstractHandler {
       
       boolean forwarded = false;
       
-      boolean nocache = false;
-      boolean nopersist = false;
+      boolean nocache = AcceleratorConfig.getDefaultWriteNocache();
+      // boolean to indicate we were explicitely instructed a nocache value
+      boolean forcedNocache = false;
+      boolean nopersist = AcceleratorConfig.getDefaultWriteNopersist();
+      // boolean to indicate we were explicitely instructed a nopersist value
+      boolean forcedNopersist = false;
          
       if (null != datalogHeader) {
         byte[] bytes = OrderPreservingBase64.decode(datalogHeader.getBytes(StandardCharsets.US_ASCII));
@@ -356,34 +363,50 @@ public class StandaloneIngressHandler extends AbstractHandler {
         deltaAttributes = dr.isDeltaAttributes();
         
         if (dr.getAttributesSize() > 0) {
-          if (null != dr.getAttributes().get(StandaloneAcceleratedStoreClient.ATTR_NOCACHE)) {
-            nocache = true;
-          } else {
-            nocache = false;
+          if (null != dr.getAttributes().get(AcceleratorConfig.ATTR_NOCACHE)) {
+            forcedNocache = true;
+            // The test below checks for "false" because initially the nocache attribute was set to the empty string
+            // to mean 'true', so we need to explicitely look for 'false' and invert it so the empty string is indeed
+            // synonymous for true.
+            nocache = !"false".equals(dr.getAttributes().get(AcceleratorConfig.ATTR_NOCACHE));
           }
-          if (null != dr.getAttributes().get(StandaloneAcceleratedStoreClient.ATTR_NOPERSIST)) {
-            nopersist = true;
-          } else {
-            nopersist = false;
+          if (null != dr.getAttributes().get(AcceleratorConfig.ATTR_NOPERSIST)) {
+            forcedNopersist = true;
+            // The test below checks for "false" because initially the nocache attribute was set to the empty string
+            // to mean 'true', so we need to explicitely look for 'false' and invert it so the empty string is indeed
+            // synonymous for true.
+            nopersist = !"false".equals(dr.getAttributes().get(AcceleratorConfig.ATTR_NOPERSIST));
           }
         }
       } else {        
-        if (null != request.getHeader(StandaloneAcceleratedStoreClient.ACCELERATOR_HEADER)) {
-          nocache = request.getHeader(StandaloneAcceleratedStoreClient.ACCELERATOR_HEADER).contains(StandaloneAcceleratedStoreClient.NOCACHE);
-          nopersist = request.getHeader(StandaloneAcceleratedStoreClient.ACCELERATOR_HEADER).contains(StandaloneAcceleratedStoreClient.NOPERSIST);                
+        if (null != request.getHeader(AcceleratorConfig.ACCELERATOR_HEADER)) {
+          if (request.getHeader(AcceleratorConfig.ACCELERATOR_HEADER).contains(AcceleratorConfig.NOCACHE)) {
+            nocache = true;
+            forcedNocache = true;
+          } else if (request.getHeader(AcceleratorConfig.ACCELERATOR_HEADER).contains(AcceleratorConfig.CACHE)) {
+            nocache = false;
+            forcedNocache = true;
+          }
+          if (request.getHeader(AcceleratorConfig.ACCELERATOR_HEADER).contains(AcceleratorConfig.NOPERSIST)) {
+            nopersist = true;
+            forcedNopersist = true;
+          } else if (request.getHeader(AcceleratorConfig.ACCELERATOR_HEADER).contains(AcceleratorConfig.PERSIST)) {
+            nopersist = false;
+            forcedNopersist = true;
+          }
         }
       }
 
       if (nocache) {
-        StandaloneAcceleratedStoreClient.nocache();
+        AcceleratorConfig.nocache();
       } else {
-        StandaloneAcceleratedStoreClient.cache();          
+        AcceleratorConfig.cache();          
       }
 
       if (nopersist) {
-        StandaloneAcceleratedStoreClient.nopersist();
+        AcceleratorConfig.nopersist();
       } else {
-        StandaloneAcceleratedStoreClient.persist();        
+        AcceleratorConfig.persist();        
       }
       
       //
@@ -656,11 +679,11 @@ public class StandaloneIngressHandler extends AbstractHandler {
             }
             dr.setNow(Long.toString(now));
             
-            if (nocache) {
-              dr.putToAttributes(StandaloneAcceleratedStoreClient.ATTR_NOCACHE, "");
+            if (forcedNocache) {
+              dr.putToAttributes(AcceleratorConfig.ATTR_NOCACHE, Boolean.toString(nocache));
             }
-            if (nopersist) {
-              dr.putToAttributes(StandaloneAcceleratedStoreClient.ATTR_NOPERSIST, "");
+            if (forcedNopersist) {
+              dr.putToAttributes(AcceleratorConfig.ATTR_NOPERSIST, Boolean.toString(nopersist));
             }
           }
           
@@ -955,6 +978,8 @@ public class StandaloneIngressHandler extends AbstractHandler {
         response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, msg);
         return;
       }
+    } finally {
+      WarpConfig.clearThreadProperties();
     }
   }
   
@@ -1112,7 +1137,7 @@ public class StandaloneIngressHandler extends AbstractHandler {
           dr.setDeltaAttributes(deltaAttributes);
         }
         
-        if (null != dr && (!forwarded || (forwarded && this.logforwarded))) {        
+        if (!forwarded || this.logforwarded) {
           //
           // Serialize the request
           //

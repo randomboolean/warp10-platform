@@ -43,6 +43,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.warp10.ThrowableUtils;
+import io.warp10.WarpConfig;
 import io.warp10.continuum.BootstrapManager;
 import io.warp10.continuum.Configuration;
 import io.warp10.continuum.LogUtil;
@@ -156,6 +157,8 @@ public class EgressExecHandler extends AbstractHandler {
     long now = System.nanoTime();
     
     try {
+      WarpConfig.setThreadProperty(WarpConfig.THREAD_PROPERTY_SESSION, UUID.randomUUID().toString());
+      
       //
       // Replace the context with the bootstrap one
       //
@@ -198,10 +201,10 @@ public class EgressExecHandler extends AbstractHandler {
       // Extract parameters from the path info and set their value as symbols
       //
       
-      String pathInfo = req.getPathInfo().substring(target.length());
+      String pathInfo = req.getPathInfo();
       
-      if (null != pathInfo && pathInfo.length() > 0) {
-        pathInfo = pathInfo.substring(1);
+      if (pathInfo != null && pathInfo.length() > Constants.API_ENDPOINT_EXEC.length()) {
+        pathInfo = pathInfo.substring(Constants.API_ENDPOINT_EXEC.length() + 1);
         String[] tokens = pathInfo.split("/");
 
         for (String token: tokens) {
@@ -424,6 +427,7 @@ public class EgressExecHandler extends AbstractHandler {
         return;
       }
     } finally {
+      WarpConfig.clearThreadProperties();
       WarpScriptStackRegistry.unregister(stack);
       
       // Clear this metric in case there was an exception

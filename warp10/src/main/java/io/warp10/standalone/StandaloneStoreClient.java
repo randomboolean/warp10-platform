@@ -45,7 +45,6 @@ import io.warp10.continuum.gts.MetadataIdComparator;
 import io.warp10.continuum.sensision.SensisionConstants;
 import io.warp10.continuum.store.Constants;
 import io.warp10.continuum.store.GTSDecoderIterator;
-import io.warp10.continuum.store.Store;
 import io.warp10.continuum.store.StoreClient;
 import io.warp10.continuum.store.thrift.data.Metadata;
 import io.warp10.crypto.KeyStore;
@@ -112,7 +111,13 @@ public class StandaloneStoreClient implements StoreClient {
     }
     
     //
-    // If we are fetching up to Long.MIN_VALUE, then don't fetch a pre boundary
+    // If we are fetching up to Long.MAX_VALUE, then don't fetch a post boundary
+    if (Long.MAX_VALUE == now) {
+      postBoundary = 0;
+    }
+    
+    //
+    // If we are fetching from Long.MIN_VALUE, then don't fetch a pre boundary
     //
     if (Long.MIN_VALUE == then) {
       preBoundary = 0;
@@ -195,18 +200,25 @@ public class StandaloneStoreClient implements StoreClient {
         //
         // Fetch the boundary
         //
-        while (postBoundary > 0 && encoder.size() < MAX_ENCODER_SIZE) {          
+        while (postBoundary > 0 && encoder.size() < MAX_ENCODER_SIZE) {
+          // Given the prefix for metadata is before the prefix for the raw data, the call to prev
+          // will never throw an exception because we've reached the beginning of the LevelDB key space
           Entry<byte[], byte[]> kv = iterator.prev();
           // Check if the previous row is for the same GTS (prefix + 8 bytes for class id + 8 bytes for labels id)
           // 128bits
           int i = Constants.HBASE_RAW_DATA_KEY_PREFIX.length + 8 + 8;
-
           // The post boundary scan exhausted the datapoints for the GTS, seek back to startrow
           if (0 != Bytes.compareTo(kv.getKey(), 0, i, startrow, 0, i)) {
             postBoundary = 0;
-            iterator.seek(startrow);
+            if (nvalues > 0) {
+              iterator.seek(startrow);
+            } else {
+              // If there are no values to fetch, position at the last row
+              iterator.seek(stoprow);
+            }
             break;
           }
+          
           byte[] k = kv.getKey();          
           long basets = k[i++] & 0xFFL;
           basets <<= 8; basets |= (k[i++] & 0xFFL); 
@@ -224,7 +236,12 @@ public class StandaloneStoreClient implements StoreClient {
             encoder.addValue(decoder.getTimestamp(), decoder.getLocation(), decoder.getElevation(), decoder.getBinaryValue());
             postBoundary--;
             if (0 == postBoundary) {
-              iterator.seek(startrow);
+              if (nvalues > 0) {
+                iterator.seek(startrow);
+              } else {
+                //  If there are no values to fetch, position at the last row
+                iterator.seek(stoprow);
+              }
             }
           } catch (IOException ioe) {
             throw new RuntimeException(ioe);
@@ -236,11 +253,13 @@ public class StandaloneStoreClient implements StoreClient {
         // if the postBoundary is not complete or if the encoder
         // has already reached its maximum allowed size
         //
-        
-        if (postBoundary <= 0 && encoder.size() < MAX_ENCODER_SIZE) {
+        // We need to check iterator.hasNext otherwise the call to next() may throw an
+        // exception if we've reached the end of the LevelDB key space
+        if (postBoundary <= 0 && encoder.size() < MAX_ENCODER_SIZE && iterator.hasNext()) {
           do {
             Entry<byte[], byte[]> kv = iterator.next();
             
+            // We've reached past 'stoprow', handle pre boundary
             if (Bytes.compareTo(kv.getKey(), stoprow) > 0) {
               //
               // If a boundary was requested, fetch it
@@ -272,14 +291,21 @@ public class StandaloneStoreClient implements StoreClient {
                   preBoundary--;
                 } catch (IOException ioe) {
                   throw new RuntimeException(ioe);
-                }            
+                }
+                if (!iterator.hasNext()) {
+                  break;
+                }
                 kv = iterator.next();              
               }
               
-              startrow = null;
               break;
             }
             
+            // We are not fetching a pre boundary and we do not have values to fetch, exit the loop
+            if (nvalues <= 0) {
+              break;
+            }
+
             ByteBuffer bb = ByteBuffer.wrap(kv.getKey()).order(ByteOrder.BIG_ENDIAN);
             
             bb.position(Constants.HBASE_RAW_DATA_KEY_PREFIX.length + 8 + 8);            
@@ -304,7 +330,7 @@ public class StandaloneStoreClient implements StoreClient {
             if (fsample < 1.0D && prng.nextDouble() > fsample) {
               continue;
             }
-            
+                        
             valueBytes += v.length;
             keyBytes += kv.getKey().length;          
             datapoints++;
@@ -373,58 +399,46 @@ public class StandaloneStoreClient implements StoreClient {
       
       @Override
       public boolean hasNext() {
-        
+        // All the metadatas have been itered on, there is no more GTSEncoder to return.
         if (idx >= metadatas.size()) {
           return false;
         }
 
-        //
-        // If idx is non null, peek the next key and determine if it is in the current range or not
-        //
-        
+        // While all the metadata are exhasted or there is potentially some data associated to a metadata.
         while(true) {
+          // Check if there are still some data associated with the current metadata.
           if (idx >= 0 && iterator.hasNext()) {
-            Entry<byte[], byte[]> kv = iterator.peekNext();
+            byte[] key = iterator.peekNext().getKey();
 
-            // If the next key is over the range, nullify startrow unless we still have boundaries to fetch
-            if (0 == preBoundary && 0 == postBoundary && Bytes.compareTo(kv.getKey(), stoprow) > 0) {
-              startrow = null;
-            } else {
-              //
-              // If we are time based or value count based with values left to read or with boundaries still to be fetched,
-              // return true
-              if (-1 == fcount || nvalues > 0 || preBoundary > 0 || postBoundary > 0) {
-                return true;
-              } else {
-                startrow = null;
-              }
+            // Still some data if there are boundaries to fetch...
+            if ((preBoundary > 0 || postBoundary > 0)
+                // ...or fetch is either time based or has not returned the requested number of points and stoprow was not yet reached.
+                || ((-1 == fcount || nvalues > 0) && (Bytes.compareTo(key, stoprow) <= 0))) {
+              return true;
             }
-          } else {
-            startrow = null;
           }
           
-          // We need to reseek if startrow is null (it indicates we need to skip to the next GTS)
-          if (null == startrow) {
-            idx++;
+          // No more data associated with the current metadata, go to the next metadata.
+          idx++;
 
-            if (idx >= metadatas.size()) {
-              return false;
-            }
-            
-            startrow = new byte[Constants.HBASE_RAW_DATA_KEY_PREFIX.length + 8 + 8 + 8];
-            ByteBuffer bb = ByteBuffer.wrap(startrow).order(ByteOrder.BIG_ENDIAN);
-            bb.put(Constants.HBASE_RAW_DATA_KEY_PREFIX);
-            bb.putLong(metadatas.get(idx).getClassId());
-            bb.putLong(metadatas.get(idx).getLabelsId());
-            bb.putLong(Long.MAX_VALUE - now);
-              
-            stoprow = new byte[startrow.length];
-            bb = ByteBuffer.wrap(stoprow).order(ByteOrder.BIG_ENDIAN);
-            bb.put(Constants.HBASE_RAW_DATA_KEY_PREFIX);
-            bb.putLong(metadatas.get(idx).getClassId());
-            bb.putLong(metadatas.get(idx).getLabelsId());                            
-            bb.putLong(Long.MAX_VALUE - then);
+          // All the metadatas have been itered on, there is no more GTSEncoder to return.
+          if (idx >= metadatas.size()) {
+            return false;
           }
+
+          startrow = new byte[Constants.HBASE_RAW_DATA_KEY_PREFIX.length + 8 + 8 + 8];
+          ByteBuffer bb = ByteBuffer.wrap(startrow).order(ByteOrder.BIG_ENDIAN);
+          bb.put(Constants.HBASE_RAW_DATA_KEY_PREFIX);
+          bb.putLong(metadatas.get(idx).getClassId());
+          bb.putLong(metadatas.get(idx).getLabelsId());
+          bb.putLong(Long.MAX_VALUE - now);
+
+          stoprow = new byte[startrow.length];
+          bb = ByteBuffer.wrap(stoprow).order(ByteOrder.BIG_ENDIAN);
+          bb.put(Constants.HBASE_RAW_DATA_KEY_PREFIX);
+          bb.putLong(metadatas.get(idx).getClassId());
+          bb.putLong(metadatas.get(idx).getLabelsId());
+          bb.putLong(Long.MAX_VALUE - then);
 
           //
           // Reset number of values retrieved since we just skipped to a new GTS.
@@ -434,9 +448,17 @@ public class StandaloneStoreClient implements StoreClient {
           
           nvalues = fcount >= 0L ? fcount : Long.MAX_VALUE;
           
-          iterator.seek(startrow);
           preBoundary = preB;
           postBoundary = postB;
+
+          // If we are not fetching a post boundary and not fetching data from the
+          // defined time range, seek to stoprow to speed up possible pre boundary
+          // fetch
+          if (0 == nvalues && postBoundary <= 0) {
+            iterator.seek(stoprow);
+          } else {
+            iterator.seek(startrow);
+          }
         }
       }
     };
@@ -527,128 +549,6 @@ public class StandaloneStoreClient implements StoreClient {
         plasmaHandler.publish(encoder);
       }
     }
-  }
-  
-  @Override
-  public void archive(int chunk, GTSEncoder encoder) throws IOException {
-    
-    if (null == encoder || chunk < 0) {
-      store((List<byte[][]>) null);
-      return;
-    }
-    
-    //
-    // If the basetimestamp is not 0, throw an error
-    //
-    
-    if (0 != encoder.getBaseTimestamp()) {
-      throw new IOException("Invalid base timestamp.");
-    }
-    
-    //
-    // Add the wrapping key
-    //
-    
-    encoder.setWrappingKey(this.keystore.getKey(KeyStore.AES_LEVELDB_DATA));
-    
-    //
-    // If chunk is 0, remove the archived data first
-    //
-    
-    long count = 0;
-    
-    if (0 == chunk) {
-      DBIterator iterator = this.db.iterator();
-      
-      byte[] seekto = new byte[Store.HBASE_ARCHIVE_DATA_KEY_PREFIX.length + 8 + 8];
-      ByteBuffer bb = ByteBuffer.wrap(seekto).order(ByteOrder.BIG_ENDIAN);
-      bb.put(Store.HBASE_ARCHIVE_DATA_KEY_PREFIX);
-      bb.putLong(encoder.getClassId());
-      bb.putLong(encoder.getLabelsId());
-      
-      iterator.seek(seekto);
-
-      WriteBatch batch = this.db.createWriteBatch();
-      int batchsize = 0;
-      
-      WriteOptions options = new WriteOptions().sync(1.0 == syncrate);
-      
-      while (iterator.hasNext()) {
-        Entry<byte[],byte[]> entry = iterator.next();
-        
-        if (0 == Bytes.compareTo(entry.getKey(), 0, seekto.length, seekto, 0, seekto.length)) {
-          batch.delete(entry.getKey());
-          batchsize++;
-          
-          if (MAX_DELETE_BATCHSIZE <= batchsize) {
-            if (syncwrites) {
-              options = new WriteOptions().sync(Math.random() < syncrate);
-            }
-            this.db.write(batch, options);
-            batch.close();
-            batch = this.db.createWriteBatch();
-            batchsize = 0;
-          }
-          //this.db.delete(entry.getKey());
-          count++;
-        } else {
-          break;
-        }
-      }
-
-      if (batchsize > 0) {
-        if (syncwrites) {
-          options = new WriteOptions().sync(Math.random() < syncrate);
-        }
-        this.db.write(batch, options);
-      }
-      iterator.close();
-      batch.close();
-    }
-    
-    int v = chunk;
-    int vbytes = 1;
-    
-    //
-    // Compute the number of bytes needed to represent the chunk
-    //
-    
-    while(0 != v) {
-      vbytes++;
-      v = v >>> 8;
-    }
-    
-    byte[] key = new byte[Store.HBASE_ARCHIVE_DATA_KEY_PREFIX.length + 8 + 8 + vbytes + vbytes - 1];
-    ByteBuffer bb = ByteBuffer.wrap(key).order(ByteOrder.BIG_ENDIAN);
-    bb.put(Store.HBASE_ARCHIVE_DATA_KEY_PREFIX);
-    bb.putLong(encoder.getClassId());
-    bb.putLong(encoder.getLabelsId());
-    
-    //
-    // Fill the key with vbytes - 1 0xff
-    //
-    
-    for (int i = 0; i < vbytes - 1; i++) {
-      bb.put((byte) 0xff);
-    }
-    
-    //
-    // Output chunk id
-    //
-    
-    for (int i = vbytes - 1; i >= 0; i--) {
-      bb.put((byte) ((chunk >>> i) & 0xff));
-    }
-
-    List<byte[][]> kvs = new ArrayList<byte[][]>();
-    
-    kvs.add(new byte[][] { key, encoder.getBytes() });
-    
-    store(kvs);
-    
-    //
-    // We don't propagate data to the plasma handler when archiving
-    //    
   }
   
   @Override
