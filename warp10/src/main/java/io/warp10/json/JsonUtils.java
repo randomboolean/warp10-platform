@@ -193,7 +193,12 @@ public class JsonUtils {
     LOOSE_MAPPER.getSerializerProvider().setNullKeySerializer(NULL_KEY_SERIALIZER);
     LOOSE_MAPPER.registerModule(module);
   }
-
+  
+  public static void registerModule(Module module) {
+    strictMapper.registerModule(module);
+    looseMapper.registerModule(module);
+  }
+  
   //
   // Method to deserialize JSON to Objects.
   //
