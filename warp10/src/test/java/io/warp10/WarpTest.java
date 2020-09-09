@@ -54,7 +54,11 @@ public class WarpTest {
 
     String extraConfPath = HOME + "etc/conf.d/99-extra.conf";
     FileWriter fr = new FileWriter(new File(extraConfPath));
-    fr.write("warp.timeunits = us");
+    fr.write("warp.timeunits = us\n");
+
+    fr.write("warpscript.extension.ml = ml.MachineLearningPackage\n");
+    fr.write("ml.package.sandbox = sandbox:11T3mi3HaWV5E7u3vzlOhp8Tqt7yeKfcHcryu2MNqEYY\n");
+    fr.write("warpscript.defaultcl.ml.MachineLearningPackage = true\n");
     fr.close();
     conf.add(extraConfPath);
 
