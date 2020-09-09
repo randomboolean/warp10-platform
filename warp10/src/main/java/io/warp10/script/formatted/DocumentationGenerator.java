@@ -134,9 +134,9 @@ public class DocumentationGenerator {
       ArgumentSpecification arg = args.get(i);
       if (0 == i && function.getArguments().isListExpandable()) {
         if ('.' == arg.getDoc().charAt(arg.getDoc().length() -1)) {
-          params.put(arg.getName(), arg.getDoc() + " This argument can be passed as a list, in which case this function will be applied for each elements.");
+          params.put(arg.getName(), arg.getDoc() + " This argument can be passed as a list, in which case this function will be applied for each element.");
         } else {
-          params.put(arg.getName(), arg.getDoc() + ". This argument can be passed as a list, in which case this function will be applied for each elements.");
+          params.put(arg.getName(), arg.getDoc() + ". This argument can be passed as a list, in which case this function will be applied for each element.");
         }
       } else {
         params.put(arg.getName(), arg.getDoc());
