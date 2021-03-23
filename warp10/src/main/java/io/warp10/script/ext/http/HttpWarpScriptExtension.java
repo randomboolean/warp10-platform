@@ -91,6 +91,9 @@ public class HttpWarpScriptExtension extends WarpScriptExtension {
   private static final Map<String, Object> functions = new HashMap<String, Object>();
   static {
     functions.put("HTTP", new HTTP("HTTP"));
+    functions.put("HTTP.COPY.CHUNK", new HTTPcopyChunk("HTTP.COPY.CHUNK"));
+    functions.put("HTTP.BIS", new HTTP_BIS("HTTP.BIS"));
+    functions.put("HTTP.BIS.COPY.CHUNK", new HTTP_BIS_copyChunk("HTTP.BIS.COPY.CHUNK"));
   }
 
   public Map<String, Object> getFunctions() {
