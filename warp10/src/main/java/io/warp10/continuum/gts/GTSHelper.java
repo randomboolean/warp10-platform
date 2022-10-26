@@ -2394,8 +2394,7 @@ public class GTSHelper {
             parms[5] = null;
           }
 
-          // values
-
+          // values list
           switch (gts.type) {
             case LONG:
               parms[6] = new COWList(gts.longValues, currentBucketStartPosition, count);
