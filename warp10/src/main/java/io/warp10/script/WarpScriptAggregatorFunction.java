@@ -43,13 +43,13 @@ public interface WarpScriptAggregatorFunction extends WarpScriptAggregator {
     if (null != slicer.getLocations()) {
       args[4] = slicer.getLocations().toArray();
     } else {
-      args[4] = new long[slicer.getTicks().size()];
+      args[4] = new long[slicer.getSize()];
       Arrays.fill((long[]) args[4], GeoTimeSerie.NO_LOCATION);
     }
     if (null != slicer.getElevations()) {
       args[5] = slicer.getElevations().toArray();
     } else {
-      args[5] = new long[slicer.getTicks().size()];
+      args[5] = new long[slicer.getSize()];
       Arrays.fill((long[]) args[5], GeoTimeSerie.NO_ELEVATION);
     }
     args[6] = slicer.getValues().toArray();
