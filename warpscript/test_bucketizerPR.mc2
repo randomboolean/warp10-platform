@@ -1,0 +1,136 @@
+// @endpoint http://localhost:8080/api/v0/exec
+
+42 PRNG
+[] [] [] [] [ 0.0 2 1001 <% DUP SRAND 2 * 1 - + %> F FOR ] MAKEGTS
+1 TIMESHIFT
+1 ms TIMESCALE
+'doubleGTS' STORE
+
+[ $doubleGTS mapper.tolong 0 0 0 ] MAP
+0 GET 'longGTS' STORE
+
+[ $doubleGTS mapper.tostring 0 0 0 ] MAP
+0 GET 'stringGTS' STORE
+
+[] [] [] [] [ 1 1001 <% SRAND 0.5 >= %> F FOR ] MAKEGTS
+1 TIMESHIFT
+1 ms TIMESCALE
+'booleanGTS' STORE
+
+[
+  //
+  // Built-in bucketizers
+  //
+
+  '-' bucketizer.join.forbid-nulls
+  bucketizer.min
+  bucketizer.count
+  bucketizer.first
+  bucketizer.max.forbid-nulls
+  bucketizer.max
+  bucketizer.mad
+  bucketizer.count.nonnull
+  bucketizer.mean
+  0.5 bucketizer.percentile.forbid-nulls
+  bucketizer.count.exclude-nulls
+  T bucketizer.var
+  F bucketizer.var
+  bucketizer.last
+  bucketizer.and
+  bucketizer.rms
+  T bucketizer.sd.welford
+  F bucketizer.sd.welford
+  bucketizer.median
+  bucketizer.mean.exclude-nulls
+  T bucketizer.sd.forbid-nulls
+  F bucketizer.sd.forbid-nulls
+  T bucketizer.var.welford
+  F bucketizer.var.welford
+  bucketizer.sum
+  bucketizer.median.forbid-nulls
+  bucketizer.count.include-nulls
+  bucketizer.min.forbid-nulls
+  0.2 bucketizer.mean.circular.exclude-nulls
+  '-' bucketizer.join
+  T bucketizer.sd
+  F bucketizer.sd
+  bucketizer.sum.forbid-nulls
+  bucketizer.or
+  1.5 bucketizer.mean.circular
+  0.3 bucketizer.percentile
+
+  //
+  // Macro as bucketizers
+  //
+
+  <% DROP [ 0 ] %>
+  <% 'subgts' STORE [ $subgts TICKS 0 GET $subgts VALUES -1 GET ] %>
+  <% 'subgts' STORE [ $subgts VALUES <% TOSTRING %> F LMAP '/' JOIN ] %>
+
+  //
+  // MACROBUCKETIZER
+  //
+
+  <% DROP [ 0 ] %> MACROBUCKETIZER
+  <% 'win' STORE [ $win 3 GET 0 GET $win 7 GET -1 GET ] %> MACROBUCKETIZER
+  <% 'win' STORE [ $win 7 GET <% TOSTRING %> F LMAP '/' JOIN ] %> MACROBUCKETIZER
+]
+'bucketizers' STORE
+
+[ 0 1 ms 1010 * 1 ms 300 * ] 
+<%
+  'lb' STORE
+
+  [ 0 1 5 15 ]
+  <%
+    'count' STORE
+
+    [ 100 ms 111 ms ]
+    <%
+      'span' STORE
+
+      $bucketizers
+      <%
+        'bucketizer' STORE
+
+        [ 'double' 'long' 'string' 'boolean' ]
+        <%
+          'type' STORE
+          $type 'GTS' + LOAD 'gts' STORE
+
+          <% [ $gts $bucketizer $lb $span $count ] BUCKETIZE 0 GET %>
+          <% ERROR <% 'message' GET ->JSON %> F LMAP  %>
+          <% %>
+          TRY
+          ->JSON 'oldRes' STORE
+
+          <% [ $gts $bucketizer $lb $span $count ] BUCKETIZE.FAST 0 GET %>
+          <% ERROR <% 'message' GET ->JSON 'BUCKETIZE.FAST' 'BUCKETIZE' REPLACEALL %> F LMAP %>
+          <% %>
+          TRY
+          ->JSON 'newRes' STORE
+
+          $oldRes $newRes !=
+          <%
+            'Results are different: '
+            $oldRes +
+            ' ; ' +
+            $newRes +
+            MSGFAIL
+          %>
+          IFT
+
+          $oldRes
+
+        %>
+        FOREACH
+      %>
+      FOREACH
+    %>
+    FOREACH
+  %>
+  FOREACH
+%>
+FOREACH
+
+STACKTOLIST ->JSON 'iso-8859-1' ->BYTES MD5 ->HEX
